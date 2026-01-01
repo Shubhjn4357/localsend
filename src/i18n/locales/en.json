@@ -3,7 +3,9 @@
         "send": "Send",
         "receive": "Receive",
         "settings": "Settings",
+        "history": "History",
         "cancel": "Cancel",
+        "confirm": "Confirm",
         "ok": "OK",
         "done": "Done",
         "error": "Error",
@@ -24,7 +26,12 @@
         "networkHint": "Make sure you're on the same Wi-Fi network",
         "webNotSupported": "Web platform does not support device discovery",
         "selectFiles": "Select Files",
-        "selectFilesFirst": "Please select files first before choosing a device"
+        "selectFilesFirst": "Please select files first before choosing a device",
+        "manualSending": "Manual Sending",
+        "hashtag": "Hashtag",
+        "ipAddress": "IP Address",
+        "hashtagExample": "Example: 123",
+        "ipAddressExample": "IP Address: 192.0.0."
     },
     "receive": {
         "title": "Receive",
@@ -73,7 +80,24 @@
         "changelog": "Changelog",
         "version": "Version",
         "developer": "Developer",
-        "tagline": "Share files across devices"
+        "tagline": "Share files across devices",
+        "colorSchemes": {
+            "system": "System",
+            "localsend": "LocalSend",
+            "oled": "OLED",
+            "yaru": "Yaru"
+        },
+        "quickSaveForFavorites": "Quick Save for 'Favourites'",
+        "quickSaveForFavoritesDesc": "Auto-accept from favorite devices",
+        "color": "Color",
+        "buyMeCoffee": "Buy me a coffee",
+        "supportDevelopment": "Support the development of LocalSend"
+    },
+    "history": {
+        "title": "History",
+        "empty": "The history is empty.",
+        "openFolder": "Open folder",
+        "deleteHistory": "Delete history"
     },
     "transfer": {
         "sending": "Sending",
@@ -82,6 +106,13 @@
         "failed": "Failed",
         "cancelled": "Cancelled",
         "remaining": "remaining",
-        "transfers": "Transfers"
+        "transfers": "Transfers",
+        "sendingFiles": "Sending files",
+        "advanced": "Advanced"
+    },
+    "troubleshoot": {
+        "title": "Troubleshoot",
+        "fixAutomatically": "Fix automatically",
+        "openFirewall": "Open Firewall"
     }
 }

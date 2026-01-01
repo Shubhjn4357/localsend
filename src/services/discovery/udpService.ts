@@ -67,11 +67,11 @@ class UDPService {
             });
 
             // Listen for incoming messages
-            this.socket.on('message', (msg, rinfo) => {
+            this.socket.on('message', (msg: any, rinfo: any) => {
                 this.handleMessage(msg, rinfo);
             });
 
-            this.socket.on('error', (err) => {
+            this.socket.on('error', (err: any) => {
                 console.error('UDP socket error:', err);
             });
 
@@ -117,7 +117,7 @@ class UDPService {
         // Send periodic announcements
         this.announcementInterval = setInterval(() => {
             this.sendAnnouncement();
-        }, ANNOUNCEMENT_INTERVAL);
+        }, ANNOUNCEMENT_INTERVAL) as unknown as NodeJS.Timeout;
     }
 
     private async sendAnnouncement(): Promise<void> {
@@ -147,7 +147,7 @@ class UDPService {
                 buffer.length,
                 MULTICAST_PORT,
                 MULTICAST_GROUP,
-                (err) => {
+                (err: any) => {
                     if (err) {
                         console.error('Failed to send announcement:', err);
                     }

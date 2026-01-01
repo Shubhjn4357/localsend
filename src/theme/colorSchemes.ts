@@ -1,0 +1,163 @@
+import type { ColorScheme } from '@/types/settings';
+
+// Color palette definitions for each scheme
+export const ColorSchemes = {
+    // System - Material You dynamic colors (will use device wallpaper on Android)
+    system: {
+        light: {
+            primary: '#6750A4',
+            primaryContainer: '#EADDFF',
+            secondary: '#625B71',
+            secondaryContainer: '#E8DEF8',
+            tertiary: '#7D5260',
+            tertiaryContainer: '#FFD8E4',
+            background: '#FFFBFE',
+            surface: '#FFFBFE',
+            surfaceVariant: '#E7E0EC',
+            onPrimary: '#FFFFFF',
+            onSecondary: '#FFFFFF',
+            onBackground: '#1C1B1F',
+            onSurface: '#1C1B1F',
+            outline: '#79747E',
+            error: '#B3261E',
+        },
+        dark: {
+            primary: '#D0BCFF',
+            primaryContainer: '#4F378B',
+            secondary: '#CCC2DC',
+            secondaryContainer: '#4A4458',
+            tertiary: '#EFB8C8',
+            tertiaryContainer: '#633B48',
+            background: '#1C1B1F',
+            surface: '#1C1B1F',
+            surfaceVariant: '#49454F',
+            onPrimary: '#381E72',
+            onSecondary: '#332D41',
+            onBackground: '#E6E1E5',
+            onSurface: '#E6E1E5',
+            outline: '#938F99',
+            error: '#F2B8B5',
+        },
+    },
+
+    // LocalSend - Olive/Sage green theme from screenshots
+    localsend: {
+        light: {
+            primary: '#6B7C5A',
+            primaryContainer: '#D4E4C5',
+            secondary: '#8B9B7A',
+            secondaryContainer: '#DDE8D0',
+            tertiary: '#7A8B6B',
+            tertiaryContainer: '#D0E4C5',
+            background: '#F8FAF5',
+            surface: '#FEFFFE',
+            surfaceVariant: '#E1E8DC',
+            onPrimary: '#FFFFFF',
+            onSecondary: '#FFFFFF',
+            onBackground: '#1A1C19',
+            onSurface: '#1A1C19',
+            outline: '#74796D',
+            error: '#BA1A1A',
+        },
+        dark: {
+            primary: '#B8CCA9',
+            primaryContainer: '#525F44',
+            secondary: '#C1D0B4',
+            secondaryContainer: '#6A7960',
+            tertiary: '#ACB8A0',
+            tertiaryContainer: '#5F6A56',
+            background: '#1A1C19',
+            surface: '#1A1C19',
+            surfaceVariant: '#43483E',
+            onPrimary: '#293426',
+            onSecondary: '#2E3A2A',
+            onBackground: '#E2E3DD',
+            onSurface: '#E2E3DD',
+            outline: '#8D9286',
+            error: '#FFB4AB',
+        },
+    },
+
+    // OLED - Pure black for OLED screens
+    oled: {
+        light: {
+            // Same as system light theme
+            primary: '#6750A4',
+            primaryContainer: '#EADDFF',
+            secondary: '#625B71',
+            secondaryContainer: '#E8DEF8',
+            tertiary: '#7D5260',
+            tertiaryContainer: '#FFD8E4',
+            background: '#FFFBFE',
+            surface: '#FFFBFE',
+            surfaceVariant: '#E7E0EC',
+            onPrimary: '#FFFFFF',
+            onSecondary: '#FFFFFF',
+            onBackground: '#1C1B1F',
+            onSurface: '#1C1B1F',
+            outline: '#79747E',
+            error: '#B3261E',
+        },
+        dark: {
+            // Pure black backgrounds
+            primary: '#D0BCFF',
+            primaryContainer: '#4F378B',
+            secondary: '#CCC2DC',
+            secondaryContainer: '#4A4458',
+            tertiary: '#EFB8C8',
+            tertiaryContainer: '#633B48',
+            background: '#000000',
+            surface: '#000000',
+            surfaceVariant: '#1C1B1F',
+            onPrimary: '#381E72',
+            onSecondary: '#332D41',
+            onBackground: '#E6E1E5',
+            onSurface: '#E6E1E5',
+            outline: '#938F99',
+            error: '#F2B8B5',
+        },
+    },
+
+    // Yaru - Ubuntu's color scheme
+    yaru: {
+        light: {
+            primary: '#E95420',
+            primaryContainer: '#FFE0D6',
+            secondary: '#77216F',
+            secondaryContainer: '#F4D9F1',
+            tertiary: '#5E2750',
+            tertiaryContainer: '#F0D9EB',
+            background: '#FFFFFF',
+            surface: '#FFFFFF',
+            surfaceVariant: '#F0F0F0',
+            onPrimary: '#FFFFFF',
+            onSecondary: '#FFFFFF',
+            onBackground: '#2C2C2C',
+            onSurface: '#2C2C2C',
+            outline: '#757575',
+            error: '#C7162B',
+        },
+        dark: {
+            primary: '#FF7953',
+            primaryContainer: '#C43D17',
+            secondary: '#C087BA',
+            secondaryContainer: '#5E1856',
+            tertiary: '#B97CA4',
+            tertiaryContainer: '#4A1E3C',
+            background: '#2C2C2C',
+            surface: '#2C2C2C',
+            surfaceVariant: '#3D3D3D',
+            onPrimary: '#5A1D0C',
+            onSecondary: '#3D1238',
+            onBackground: '#E6E6E6',
+            onSurface: '#E6E6E6',
+            outline: '#8F8F8F',
+            error: '#FF6B6B',
+        },
+    },
+};
+
+// Helper function to get colors for a specific scheme and mode
+export function getColorScheme(scheme: ColorScheme, isDark: boolean) {
+    return isDark ? ColorSchemes[scheme].dark : ColorSchemes[scheme].light;
+}

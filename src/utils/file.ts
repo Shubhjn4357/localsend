@@ -62,7 +62,7 @@ export const getFileCategory = (fileName: string): keyof typeof FILE_CATEGORIES 
     const extension = fileName.split('.').pop()?.toLowerCase() || '';
 
     for (const [category, extensions] of Object.entries(FILE_CATEGORIES)) {
-        if (extensions.includes(extension)) {
+        if ((extensions as readonly string[]).includes(extension)) {
             return category as keyof typeof FILE_CATEGORIES;
         }
     }

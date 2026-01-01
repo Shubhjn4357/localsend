@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, ViewStyle, Platform } from 'react-native';
+import { StyleSheet, ViewStyle, Platform, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Animated, {
     useAnimatedStyle,
@@ -46,13 +46,8 @@ export const GlassCard: React.FC<GlassCardProps> = ({
         ? GlassMorphismStyles.glassDark
         : GlassMorphismStyles.glassLight;
 
-    return (
-        <Animated.View
-            style={[styles.container, animatedStyle, style]}
-            onTouchStart={handlePressIn}
-            onTouchEnd={handlePressOut}
-            onPress={onPress}
-        >
+    const content = (
+        <Animated.View style={[styles.container, animatedStyle, style]}>
             <BlurView
                 intensity={intensity}
                 tint={theme.dark ? 'dark' : 'light'}
@@ -63,6 +58,20 @@ export const GlassCard: React.FC<GlassCardProps> = ({
             </Animated.View>
         </Animated.View>
     );
+
+    if (onPress) {
+        return (
+            <Pressable
+                onPress={onPress}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+            >
+                {content}
+            </Pressable>
+        );
+    }
+
+    return content;
 };
 
 const styles = StyleSheet.create({

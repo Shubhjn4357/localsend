@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Modal, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, TextInput, Button, useTheme } from 'react-native-paper';
+import { StyleSheet, View, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { Modal, Portal, Text, Button, TextInput, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import type { AppTheme } from '@/theme/colors';
 
@@ -12,40 +13,34 @@ interface DeviceNameDialogProps {
     onSave: (name: string) => void;
 }
 
-export const DeviceNameDialog: React.FC<DeviceNameDialogProps> = ({
-    visible,
-    currentName,
-    onClose,
-    onSave
-}) => {
+export function DeviceNameDialog({ visible, currentName, onClose, onSave }: DeviceNameDialogProps) {
+    const { t } = useTranslation();
     const theme = useTheme<AppTheme>();
     const [name, setName] = useState(currentName);
 
-    // Sync name with currentName when dialog opens
     useEffect(() => {
-        if (visible) {
-            setName(currentName);
-        }
-    }, [visible, currentName]);
+        setName(currentName);
+    }, [currentName, visible]);
 
     const handleSave = () => {
-        if (name.trim()) {
-            onSave(name.trim());
-            onClose();
-        }
+        if (!name.trim()) return;
+        onSave(name.trim());
+        onClose();
     };
 
     return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="fade"
-            onRequestClose={onClose}
-        >
-            <Pressable style={styles.backdrop} onPress={onClose}>
+        <Portal>
+            <Modal
+                visible={visible}
+                onDismiss={onClose}
+                contentContainerStyle={[
+                    styles.container,
+                    { backgroundColor: theme.colors.surface },
+                ]}
+            >
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.container}
+                    style={styles.keyboardAvoid}
                 >
                     <Pressable onPress={(e) => e.stopPropagation()}>
                         <Animated.View
@@ -89,8 +84,8 @@ export const DeviceNameDialog: React.FC<DeviceNameDialogProps> = ({
                         </Animated.View>
                     </Pressable>
                 </KeyboardAvoidingView>
-            </Pressable>
-        </Modal>
+            </Modal>
+        </Portal>
     );
 };
 
@@ -102,8 +97,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     container: {
-        width: '100%',
-        paddingHorizontal: 24,
+        marginHorizontal: 24,
+        borderRadius: 24,
+        padding: 24,
+    },
+    keyboardAvoid: {
+        flex: 1,
     },
     dialog: {
         borderRadius: 24,

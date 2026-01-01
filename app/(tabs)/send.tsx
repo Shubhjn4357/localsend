@@ -10,6 +10,7 @@ import { DeviceCard } from '@/components/DeviceCard';
 import { FileTypePicker } from '@/components/FileTypePicker';
 import { DeviceSkeletonLoader } from '@/components/DeviceSkeletonLoader';
 import { TextInputSheet } from '@/components/TextInputSheet';
+import { ManualSendingDialog } from '@/components/ManualSendingDialog';
 import { useDeviceStore } from '@/stores/deviceStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useActiveTransfersStore } from '@/stores/activeTransfersStore';
@@ -25,6 +26,7 @@ export default function SendScreen() {
     const [selectedFiles, setSelectedFiles] = useState<PickedFile[]>([]);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [showTextInput, setShowTextInput] = useState(false);
+    const [showManualSending, setShowManualSending] = useState(false);
 
     const allDevices = useDeviceStore((state) => state.devices);
     const isScanning = useDeviceStore((state) => state.isScanning);
@@ -169,6 +171,12 @@ export default function SendScreen() {
         });
     }, [startDiscovery]);
 
+    const handleManualConnect = useCallback((type: 'hashtag' | 'ip', value: string) => {
+        // TODO: Implement manual device connection
+        console.log(`Manual connect via ${type}:`, value);
+        Alert.alert(t('common.success'), `Attempting to connect via ${type}: ${value}`);
+    }, [t]);
+
     const renderDeviceItem = ({ item }: any) => (
         <DeviceCard
             device={item}
@@ -239,6 +247,13 @@ export default function SendScreen() {
                 >
                     {t('send.favorites')} {favoriteDevices.length > 0 && `(${favoriteDevices.length})`}
                 </Chip>
+                <Chip
+                    onPress={() => setShowManualSending(true)}
+                    icon="plus-circle"
+                    style={{ backgroundColor: theme.colors.surfaceVariant }}
+                >
+                    {t('send.manualSending')}
+                </Chip>
             </View>
 
             {/* Devices List */}
@@ -269,6 +284,13 @@ export default function SendScreen() {
                 visible={showTextInput}
                 onClose={() => setShowTextInput(false)}
                 onSubmit={handleTextSubmit}
+            />
+
+            {/* Manual Sending Dialog */}
+            <ManualSendingDialog
+                visible={showManualSending}
+                onClose={() => setShowManualSending(false)}
+                onConnect={handleManualConnect}
             />
         </View>
     );

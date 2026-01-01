@@ -66,7 +66,7 @@ class DeviceService {
                     console.log(`Device timeout: ${device.alias}`);
                 }
             });
-        }, 5000);
+        }, 5000) as unknown as NodeJS.Timeout;
     }
 
     getFingerprint(): string {

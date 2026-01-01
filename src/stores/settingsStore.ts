@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
-import type { ThemeMode, Language, DestinationFolder } from '../types/settings';
+import type { ThemeMode, ColorScheme, Language, DestinationFolder } from '../types/settings';
 import { generateRandomDeviceName, generateDeviceId } from '../utils/deviceNames';
 import { LocalStorage, STORAGE_KEYS } from '../utils/storage';
 import i18n from '@/i18n';
@@ -9,11 +9,13 @@ import i18n from '@/i18n';
 interface SettingsStore {
     // General Settings
     theme: ThemeMode;
+    colorScheme: ColorScheme;
     language: Language;
     animationsEnabled: boolean;
 
     // Receive Settings
     quickSaveEnabled: boolean;
+    quickSaveForFavorites: boolean;
     requirePin: boolean;
     pin: string;
     destination: DestinationFolder;
@@ -35,10 +37,12 @@ interface SettingsStore {
 
     // Actions
     setTheme: (theme: ThemeMode) => Promise<void>;
+    setColorScheme: (colorScheme: ColorScheme) => Promise<void>;
     setLanguage: (language: Language) => Promise<void>;
     setAnimationsEnabled: (enabled: boolean) => Promise<void>;
 
     setQuickSaveEnabled: (enabled: boolean) => Promise<void>;
+    setQuickSaveForFavorites: (enabled: boolean) => Promise<void>;
     setRequirePin: (enabled: boolean) => Promise<void>;
     setPin: (pin: string) => Promise<void>;
     setDestination: (destination: DestinationFolder) => Promise<void>;
@@ -70,11 +74,13 @@ const generateDefaultAlias = () => {
 const defaultSettings = {
     // General
     theme: 'auto' as ThemeMode,
+    colorScheme: 'localsend' as ColorScheme,
     language: 'en' as Language,
     animationsEnabled: true,
 
     // Receive
     quickSaveEnabled: false,
+    quickSaveForFavorites: false,
     requirePin: false,
     pin: '',
     destination: 'downloads' as DestinationFolder,
@@ -103,6 +109,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
     },
 
+    setColorScheme: async (colorScheme) => {
+        set({ colorScheme });
+        await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
+    },
+
     setLanguage: async (language) => {
         set({ language });
         // Sync with i18n
@@ -117,6 +128,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
     setQuickSaveEnabled: async (enabled) => {
         set({ quickSaveEnabled: enabled });
+        await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
+    },
+
+    setQuickSaveForFavorites: async (enabled) => {
+        set({ quickSaveForFavorites: enabled });
         await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
     },
 

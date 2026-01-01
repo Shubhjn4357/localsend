@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, Pressable, Linking, Modal, Platform, Alert } from 'react-native';
+import { StyleSheet, View, ScrollView, Pressable, Alert, Linking, Modal, Platform } from 'react-native';
 import { Text, Switch, useTheme, Divider, RadioButton, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -9,8 +9,8 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { DeviceNameDialog } from '@/components/DeviceNameDialog';
 import { PrivacyPolicyScreen } from '@/components/PrivacyPolicyScreen';
 import type { AppTheme } from '@/theme/colors';
-import type { ThemeMode, Language, DestinationFolder } from '@/types/settings';
-import { LANGUAGES, DESTINATION_FOLDERS } from '@/types/settings';
+import type { ThemeMode, ColorScheme, Language, DestinationFolder } from '@/types/settings';
+import { LANGUAGES, COLOR_SCHEMES, DESTINATION_FOLDERS } from '@/types/settings';
 import { LOCALSEND_VERSION, APP_DEVELOPER, CHANGELOG } from '@/utils/constants';
 
 export default function SettingsScreen() {
@@ -18,20 +18,24 @@ export default function SettingsScreen() {
     const theme = useTheme<AppTheme>();
     const [showChangelog, setShowChangelog] = useState(false);
     const [expandedLanguages, setExpandedLanguages] = useState(false);
+    const [expandedColorSchemes, setExpandedColorSchemes] = useState(false);
     const [expandedDestination, setExpandedDestination] = useState(false);
     const [showDeviceNameDialog, setShowDeviceNameDialog] = useState(false);
     const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
 
     // General Settings
     const themeMode = useSettingsStore((state) => state.theme);
+    const colorScheme = useSettingsStore((state) => state.colorScheme);
     const language = useSettingsStore((state) => state.language);
     const animationsEnabled = useSettingsStore((state) => state.animationsEnabled);
     const setTheme = useSettingsStore((state) => state.setTheme);
+    const setColorScheme = useSettingsStore((state) => state.setColorScheme);
     const setLanguage = useSettingsStore((state) => state.setLanguage);
     const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
 
     // Receive Settings
     const quickSaveEnabled = useSettingsStore((state) => state.quickSaveEnabled);
+    const quickSaveForFavorites = useSettingsStore((state) => state.quickSaveForFavorites);
     const requirePin = useSettingsStore((state) => state.requirePin);
     const pin = useSettingsStore((state) => state.pin);
     const destination = useSettingsStore((state) => state.destination);
@@ -39,6 +43,7 @@ export default function SettingsScreen() {
     const autoFinish = useSettingsStore((state) => state.autoFinish);
     const saveHistory = useSettingsStore((state) => state.saveHistory);
     const setQuickSaveEnabled = useSettingsStore((state) => state.setQuickSaveEnabled);
+    const setQuickSaveForFavorites = useSettingsStore((state) => state.setQuickSaveForFavorites);
     const setRequirePin = useSettingsStore((state) => state.setRequirePin);
     const setDestination = useSettingsStore((state) => state.setDestination);
     const setSaveToGallery = useSettingsStore((state) => state.setSaveToGallery);
@@ -83,6 +88,24 @@ export default function SettingsScreen() {
                     />
 
                     <SettingItem
+                        icon="palette-swatch"
+                        label="Color"
+                        value={COLOR_SCHEMES[colorScheme]}
+                        theme={theme}
+                        onPress={() => setExpandedColorSchemes(!expandedColorSchemes)}
+                        expandable
+                    />
+
+                    {expandedColorSchemes && (
+                        <RadioGroup
+                            options={Object.entries(COLOR_SCHEMES).map(([key, label]) => ({ key, label }))}
+                            selected={colorScheme}
+                            onSelect={(key) => setColorScheme(key as ColorScheme)}
+                            theme={theme}
+                        />
+                    )}
+
+                    <SettingItem
                         icon="translate"
                         label="Language"
                         value={LANGUAGES[language]}
@@ -121,6 +144,15 @@ export default function SettingsScreen() {
                         subtitle="Auto-accept and save files"
                         value={quickSaveEnabled}
                         onValueChange={setQuickSaveEnabled}
+                        theme={theme}
+                    />
+
+                    <ToggleSettingItem
+                        icon="star-circle"
+                        label="Quick Save for 'Favourites'"
+                        subtitle="Auto-accept from favorite devices"
+                        value={quickSaveForFavorites}
+                        onValueChange={setQuickSaveForFavorites}
                         theme={theme}
                     />
 
@@ -244,6 +276,25 @@ export default function SettingsScreen() {
                     {showChangelog && (
                         <ChangelogView changelog={CHANGELOG} theme={theme} />
                     )}
+                </Animated.View>
+
+                <Divider style={styles.sectionDivider} />
+
+                {/* Support Section */}
+                <Animated.View entering={FadeIn.delay(500)}>
+                    <SectionHeader icon="heart" title="Support LocalSend" theme={theme} />
+
+                    <SettingItem
+                        icon="coffee"
+                        label={t('settings.buyMeCoffee') || "Buy me a coffee"}
+                        theme={theme}
+                        onPress={() => {
+                            const url = 'https://www.buymeacoffee.com/shubhjn';
+                            Linking.openURL(url).catch(() => {
+                                Alert.alert(t('common.error'), 'Could not open link');
+                            });
+                        }}
+                    />
                 </Animated.View>
 
                 {/* App Info */}

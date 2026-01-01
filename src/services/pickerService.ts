@@ -91,23 +91,43 @@ class PickerService {
 
     async pickApp(): Promise<PickedFile[]> {
         if (Platform.OS !== 'android') {
-            Alert.alert('Not Supported', 'App picking is only available on Android.');
+            Alert.alert('Not Supported', 'App selection is only available on Android');
+            return [];
+        }
+
+        // For now, show an info message. Full implementation would require native module
+        Alert.alert(
+            'App Picker',
+            'Select an installed app to share its APK file. This feature requires additional setup.',
+            [{ text: 'OK' }]
+        );
+
+        return [];
+    }
+
+    async pickInstalledApp(): Promise<PickedFile[]> {
+        if (Platform.OS !== 'android') {
+            Alert.alert('Not Supported', 'App selection is only available on Android');
             return [];
         }
 
         try {
+            // This would require a native module to get installed apps
+            // For now, we'll use document picker as fallback to select APK files
             const result = await DocumentPicker.getDocumentAsync({
                 type: 'application/vnd.android.package-archive',
-                copyToCacheDirectory: false,
+                multiple: false,
             });
 
-            if (result.canceled) return [];
+            if (result.canceled) {
+                return [];
+            }
 
             return result.assets.map((asset) => ({
                 uri: asset.uri,
                 name: asset.name,
                 size: asset.size || 0,
-                mimeType: 'application/vnd.android.package-archive',
+                mimeType: asset.mimeType || 'application/vnd.android.package-archive',
             }));
         } catch (error) {
             console.error('Error picking app:', error);

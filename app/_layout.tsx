@@ -7,7 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useColorScheme } from 'react-native';
-import { LightTheme, DarkTheme } from '@/theme/colors';
+import { createTheme } from '@/theme/colors';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useHistoryStore } from '@/stores/historyStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
@@ -21,16 +21,18 @@ const queryClient = new QueryClient();
 
 export default function RootLayout() {
     const [appIsReady, setAppIsReady] = React.useState(false);
-    const colorScheme = useColorScheme();
+    const systemColorScheme = useColorScheme();
     const themePreference = useSettingsStore((state) => state.theme);
+    const colorSchemePreference = useSettingsStore((state) => state.colorScheme);
 
     // Memoize theme to prevent unnecessary re-renders
     const theme = useMemo(() => {
-        if (themePreference === 'auto') {
-            return colorScheme === 'dark' ? DarkTheme : LightTheme;
-        }
-        return themePreference === 'dark' ? DarkTheme : LightTheme;
-    }, [themePreference, colorScheme]);
+        const isDark = themePreference === 'auto'
+            ? systemColorScheme === 'dark'
+            : themePreference === 'dark';
+
+        return createTheme(colorSchemePreference, isDark);
+    }, [themePreference, colorSchemePreference, systemColorScheme]);
 
     // Sync SystemUI background color with theme
     useEffect(() => {
