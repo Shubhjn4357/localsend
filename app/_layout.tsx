@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, StatusBar } from 'react-native';
 import { Slot, SplashScreen } from 'expo-router';
+import * as SystemUI from 'expo-system-ui';
 import { PaperProvider } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -30,6 +31,11 @@ export default function RootLayout() {
         }
         return themePreference === 'dark' ? DarkTheme : LightTheme;
     }, [themePreference, colorScheme]);
+
+    // Sync SystemUI background color with theme
+    useEffect(() => {
+        SystemUI.setBackgroundColorAsync(theme.colors.background);
+    }, [theme]);
 
     useEffect(() => {
         async function prepare() {
