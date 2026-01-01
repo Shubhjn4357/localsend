@@ -64,7 +64,8 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "enableMinifyInReleaseBuilds": true
+            "enableMinifyInReleaseBuilds": true,
+            "extraProguardRules": "-dontwarn io.netty.**\n-dontwarn sun.security.**\n-dontwarn org.slf4j.**\n-dontwarn org.apache.log4j.**\n-dontwarn org.apache.logging.log4j.**"
           },
           "ios": {
             "useFrameworks": "static"
