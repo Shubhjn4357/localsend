@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Modal, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { Text, TextInput, Button, useTheme, IconButton } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { TextInput, Button, useTheme, IconButton, Modal, Portal, Text } from 'react-native-paper';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 import type { AppTheme } from '@/theme/colors';
 
 interface TextInputSheetProps {
@@ -30,126 +29,131 @@ export const TextInputSheet: React.FC<TextInputSheetProps> = ({ visible, onClose
     };
 
     const handlePaste = async () => {
-        const clipboardText = await Clipboard.getString();
-        if (clipboardText) {
-            setText(prev => prev + clipboardText);
+        try {
+            const clipboardText = await Clipboard.getString();
+            if (clipboardText) {
+                setText(prev => prev + clipboardText);
+            }
+        } catch (e) {
+            console.error('Failed to paste:', e);
         }
     };
 
     return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="fade"
-            onRequestClose={handleClose}
-        >
-            <Pressable style={styles.backdrop} onPress={handleClose}>
+        <Portal>
+            <Modal
+                visible={visible}
+                onDismiss={handleClose}
+                contentContainerStyle={styles.modalContainer}
+            >
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.container}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 >
-                    <Pressable onPress={(e) => e.stopPropagation()}>
-                        <Animated.View
-                            entering={SlideInDown}
-                            style={[styles.sheet, { backgroundColor: theme.colors.surface }]}
-                        >
-                            {/* Header */}
-                            <View style={styles.header}>
-                                <MaterialCommunityIcons
-                                    name="text-box"
-                                    size={24}
-                                    color={theme.colors.primary}
-                                />
-                                <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-                                    Send Text
-                                </Text>
-                                <IconButton
-                                    icon="content-paste"
-                                    size={20}
-                                    onPress={handlePaste}
-                                    iconColor={theme.colors.primary}
-                                />
-                                <Pressable onPress={handleClose}>
-                                    <MaterialCommunityIcons
-                                        name="close"
-                                        size={24}
-                                        color={theme.colors.onSurfaceVariant}
-                                    />
-                                </Pressable>
-                            </View>
+                    <Animated.View
+                        entering={SlideInDown}
+                        style={[
+                            styles.bottomSheet,
+                            { backgroundColor: theme.colors.surface }
+                        ]}
+                    >
+                        <View style={styles.header}>
+                            <Text style={[styles.title, { color: theme.colors.onSurface }]}>Send Text</Text>
+                            <IconButton
+                                icon="close"
+                                size={24}
+                                iconColor={theme.colors.onSurface}
+                                onPress={handleClose}
+                            />
+                        </View>
 
-                            {/* Text Input */}
+                        <View style={styles.inputContainer}>
                             <TextInput
                                 mode="outlined"
-                                label="Enter text to send"
+                                label="Message"
                                 value={text}
                                 onChangeText={setText}
                                 multiline
-                                numberOfLines={8}
-                                style={styles.textInput}
+                                numberOfLines={5}
+                                style={[styles.textInput, { backgroundColor: theme.colors.surface }]}
                                 placeholder="Type your message here..."
+                                activeOutlineColor={theme.colors.primary}
+                                textColor={theme.colors.onSurface}
                                 autoFocus
                             />
+                            <IconButton
+                                icon="content-paste"
+                                size={20}
+                                onPress={handlePaste}
+                                style={styles.pasteButton}
+                                iconColor={theme.colors.primary}
+                            />
+                        </View>
 
-                            {/* Actions */}
-                            <View style={styles.actions}>
-                                <Button
-                                    mode="outlined"
-                                    onPress={handleClose}
-                                    style={styles.button}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    mode="contained"
-                                    onPress={handleSubmit}
-                                    disabled={!text.trim()}
-                                    style={styles.button}
-                                >
-                                    Send
-                                </Button>
-                            </View>
-                        </Animated.View>
-                    </Pressable>
+                        <View style={styles.footer}>
+                            <Button
+                                mode="outlined"
+                                onPress={handleClose}
+                                style={styles.button}
+                                textColor={theme.colors.onSurfaceVariant}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                mode="contained"
+                                onPress={handleSubmit}
+                                disabled={!text.trim()}
+                                style={styles.button}
+                                buttonColor={theme.colors.primary}
+                                textColor={theme.colors.onPrimary}
+                            >
+                                Send
+                            </Button>
+                        </View>
+                    </Animated.View>
                 </KeyboardAvoidingView>
-            </Pressable>
-        </Modal>
+            </Modal>
+        </Portal>
     );
 };
 
 const styles = StyleSheet.create({
-    backdrop: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    modalContainer: {
         justifyContent: 'flex-end',
+        margin: 0,
     },
-    container: {
-        justifyContent: 'flex-end',
-    },
-    sheet: {
+    bottomSheet: {
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 24,
-        maxHeight: '80%',
+        width: '100%',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
-        gap: 12,
+        justifyContent: 'space-between',
+        marginBottom: 16,
     },
     title: {
-        flex: 1,
         fontSize: 20,
         fontWeight: 'bold',
     },
-    textInput: {
-        marginBottom: 20,
-        minHeight: 150,
+    inputContainer: {
+        position: 'relative',
+        marginBottom: 24,
     },
-    actions: {
+    textInput: {
+        minHeight: 120,
+    },
+    pasteButton: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        zIndex: 1,
+    },
+    footer: {
         flexDirection: 'row',
         gap: 12,
+        justifyContent: 'flex-end',
     },
     button: {
         flex: 1,

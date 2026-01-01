@@ -1,32 +1,44 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { StyleSheet, View, FlatList, Platform, Pressable, Alert } from 'react-native';
+import { Buffer } from 'buffer';
+import { StyleSheet, View, FlatList, Platform, Pressable } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { Text, IconButton, useTheme, Chip, FAB, Button } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Text, IconButton, useTheme, FAB } from 'react-native-paper';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DeviceCard } from '@/components/DeviceCard';
-import { FileTypePicker } from '@/components/FileTypePicker';
-import { DeviceSkeletonLoader } from '@/components/DeviceSkeletonLoader';
+import { SelectionHeader } from '@/components/SelectionHeader';
+import { FileTypePickerModal } from '@/components/FileTypePickerModal';
+import { MinimalDeviceLoader } from '@/components/MinimalDeviceLoader';
 import { TextInputSheet } from '@/components/TextInputSheet';
 import { ManualSendingDialog } from '@/components/ManualSendingDialog';
+import { ThemedAlert } from '@/components/ThemedAlert';
+import { QRScannerModal } from '@/components/QRScannerModal';
+import { QRDisplayModal } from '@/components/QRDisplayModal';
+import { SelectedFilesModal } from '@/components/SelectedFilesModal';
 import { useDeviceStore } from '@/stores/deviceStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useActiveTransfersStore } from '@/stores/activeTransfersStore';
 import { deviceService } from '@/services/discovery/deviceService';
+import { httpDiscoveryService } from '@/services/discovery/httpDiscoveryService';
 import { pickerService, type PickedFile } from '@/services/pickerService';
+import type { Device } from '@/types/device';
 import type { AppTheme } from '@/theme/colors';
 import type { FileTypeOption } from '@/utils/constants';
 
 export default function SendScreen() {
     const { t } = useTranslation();
     const theme = useTheme<AppTheme>();
+    const insets = useSafeAreaInsets();
     const [selectedFileType, setSelectedFileType] = useState<FileTypeOption>('file');
     const [selectedFiles, setSelectedFiles] = useState<PickedFile[]>([]);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [showTextInput, setShowTextInput] = useState(false);
     const [showManualSending, setShowManualSending] = useState(false);
+    const [showFileTypePicker, setShowFileTypePicker] = useState(false);
 
     const allDevices = useDeviceStore((state) => state.devices);
     const isScanning = useDeviceStore((state) => state.isScanning);
@@ -52,16 +64,16 @@ export default function SendScreen() {
     }, [allDevices, favorites]);
 
     const startDiscovery = useCallback(async () => {
-        if (Platform.OS === 'web') {
-            console.log('Device discovery not supported on web platform');
-            return;
-        }
         try {
+            console.log('Starting device discovery...');
             await deviceService.startDiscovery();
         } catch (error) {
             console.error('Failed to start device discovery:', error);
+            console.error('Failed to start device discovery:', error);
+            // We'll use a local state for alerts soon, for now just log
+            console.log('Discovery failed');
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         startDiscovery();
@@ -91,58 +103,66 @@ export default function SendScreen() {
                     files = await pickerService.pickApp();
                     break;
                 case 'text':
-                    // Show text input sheet OR paste directly
-                    const clipboardText = await Clipboard.getString();
-                    if (clipboardText && clipboardText.trim()) {
-                        // Ask user: paste or type
-                        Alert.alert(
-                            'Send Text',
-                            'Clipboard has text. What would you like to do?',
-                            [
-                                {
-                                    text: 'Paste',
-                                    onPress: () => handleTextSubmit(clipboardText)
-                                },
-                                {
-                                    text: 'Type New',
-                                    onPress: () => setShowTextInput(true)
-                                },
-                                {
-                                    text: 'Cancel',
-                                    style: 'cancel'
-                                }
-                            ]
-                        );
-                    } else {
-                        setShowTextInput(true);
-                    }
+                    setShowTextInput(true);
                     return;
             }
 
             if (files.length > 0) {
                 setSelectedFiles(files);
-                Alert.alert(t('common.success'), `Selected ${files.length} file(s)`);
+                showAlert(t('common.success'), `Selected ${files.length} file(s)`);
             }
         } catch (error) {
             console.error('Error picking files:', error);
-            Alert.alert(t('common.error'), 'Failed to select files');
+            showAlert(t('common.error'), 'Failed to select files');
         }
     }, [t]);
 
     const handleTextSubmit = useCallback((text: string) => {
         // Create a virtual file for text
+        // Ensure btoa is available or fallback/handle error
+        let base64Content = '';
+        try {
+            if (typeof btoa === 'function') {
+                base64Content = btoa(text);
+            } else {
+                // Buffer fallback for React Native if needed, or simple custom implementation for basic ASCII
+                base64Content = Buffer.from(text).toString('base64');
+            }
+        } catch (e) {
+            console.error('Failed to encode text to base64', e);
+            // Fallback for extremely basic cases if Buffer/btoa fail?
+            // Realistically, modern RN has usage of Buffer or btoa via polyfill.
+            // If we are crashing, it might be due to missing globals.
+            // We'll rely on global.Buffer if btoa fails.
+        }
+
+        const size = new Blob([text]).size; // Modern RN supports Blob
         const textFile: PickedFile = {
-            uri: `data:text/plain;base64,${btoa(text)}`,
+            uri: `data:text/plain;base64,${base64Content}`,
             name: `text_${Date.now()}.txt`,
-            size: new Blob([text]).size,
+            size: size,
             mimeType: 'text/plain',
         };
         setSelectedFiles([textFile]);
     }, []);
 
-    const handleDevicePress = useCallback((device: any) => {
+    const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; buttons?: any[] }>({
+        visible: false,
+        title: '',
+        message: ''
+    });
+
+    const showAlert = (title: string, message: string, buttons?: any[]) => {
+        setAlert({ visible: true, title, message, buttons });
+    };
+
+    const hideAlert = () => {
+        setAlert(prev => ({ ...prev, visible: false }));
+    };
+
+    const handleSendFiles = useCallback(async (device: Device) => {
         if (selectedFiles.length === 0) {
-            Alert.alert(t('send.selectFiles'), t('send.selectFilesFirst'));
+            showAlert(t('send.selectFiles'), t('send.selectFilesFirst'));
             return;
         }
 
@@ -161,7 +181,7 @@ export default function SendScreen() {
             });
         });
 
-        Alert.alert(t('common.success'), `Starting transfer to ${device.alias}`);
+        showAlert(t('common.success'), `Starting transfer to ${device.alias}`);
         setSelectedFiles([]);
     }, [selectedFiles, setSelectedDevice, startTransfer, t]);
 
@@ -171,16 +191,65 @@ export default function SendScreen() {
         });
     }, [startDiscovery]);
 
-    const handleManualConnect = useCallback((type: 'hashtag' | 'ip', value: string) => {
-        // TODO: Implement manual device connection
-        console.log(`Manual connect via ${type}:`, value);
-        Alert.alert(t('common.success'), `Attempting to connect via ${type}: ${value}`);
-    }, [t]);
+    const [showQRScanner, setShowQRScanner] = useState(false);
+    const [showQRDisplay, setShowQRDisplay] = useState(false);
+    const [qrData, setQrData] = useState('');
+
+    // Generate QR data (e.g., device info or IP)
+    useEffect(() => {
+        const settings = useSettingsStore.getState();
+        // Format: localsend:ip:port:alias
+        setQrData(`localsend:${settings.serverPort}:${settings.deviceAlias}`);
+    }, []);
+
+    const [showSelectedFilesModal, setShowSelectedFilesModal] = useState(false);
+
+    const handleManualConnect = useCallback(async (type: 'hashtag' | 'ip', value: string) => {
+        if (type === 'ip') {
+            showAlert(t('common.info'), `Connecting to ${value}...`);
+            try {
+                const device = await httpDiscoveryService.checkDevice(value);
+                if (device) {
+                    useDeviceStore.getState().addDevice(device);
+                    handleSendFiles(device);
+                    // Close manual sending dialog
+                    setShowManualSending(false);
+                } else {
+                    showAlert(t('common.error'), `Could not find device at ${value}`);
+                }
+            } catch (e) {
+                console.error(e);
+                showAlert(t('common.error'), `Connection failed: ${e}`);
+            }
+        } else {
+            showAlert(t('common.info'), 'Hashtag connection requires multicast which might not be reliable manually. Please try IP.');
+        }
+    }, [t, handleSendFiles, setShowManualSending]);
+
+    const handleEditSelection = () => setShowSelectedFilesModal(true);
+
+    const handleRemoveFile = (fileToRemove: PickedFile) => {
+        setSelectedFiles(prev => prev.filter(f => f.uri !== fileToRemove.uri));
+        if (selectedFiles.length <= 1) {
+            setShowSelectedFilesModal(false);
+        }
+    };
+
+    const handleRemoveAll = () => {
+        setSelectedFiles([]);
+        setShowSelectedFilesModal(false);
+    };
+
+    const handleQRScan = useCallback((data: string) => {
+        // Handle scanned data (e.g., connect to IP or start transfer)
+        console.log('Scanned QR code:', data);
+        handleManualConnect('ip', data); // Assuming QR code contains IP for now
+    }, [handleManualConnect]);
 
     const renderDeviceItem = ({ item }: any) => (
         <DeviceCard
             device={item}
-            onPress={handleDevicePress}
+            onPress={() => handleSendFiles(item)}
             onFavorite={() => toggleFavorite(item.fingerprint)}
             isFavorite={isFavorite(item.fingerprint)}
         />
@@ -204,61 +273,98 @@ export default function SendScreen() {
         </Animated.View>
     );
 
+    const handleShowFileTypePicker = () => setShowFileTypePicker(true);
+    const handleShowQR = () => {
+        setShowQRDisplay(true);
+    };
+
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <LinearGradient
-                colors={
-                    theme.dark
-                        ? ['#0F172A', '#1E293B', '#334155']
-                        : ['#F8FAFC', '#E0E7FF', '#FCE7F3']
-                }
-                style={StyleSheet.absoluteFill}
-            />
-
-            {/* File Type Picker */}
-            <FileTypePicker
-                selectedType={selectedFileType}
-                onTypeSelect={handleFileTypeSelect}
-            />
-
-            {selectedFiles.length > 0 && (
-                <View style={[styles.selectedFilesContainer, { backgroundColor: theme.colors.primaryContainer }]}>
-                    <MaterialCommunityIcons name="file-multiple" size={20} color={theme.colors.primary} />
-                    <Text style={[styles.selectedFilesText, { color: theme.colors.primary }]}>
-                        {selectedFiles.length} {selectedFiles.length === 1 ? 'file' : 'files'} selected
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
+            {selectedFiles.length > 0 ? (
+                <SelectionHeader
+                    fileCount={selectedFiles.length}
+                    totalSize={selectedFiles.reduce((acc, file) => acc + file.size, 0)}
+                    onClose={() => setSelectedFiles([])}
+                    onEdit={handleEditSelection}
+                    onAdd={handleShowFileTypePicker}
+                    filePreview={
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                            {selectedFiles.slice(0, 3).map((file, i) => (
+                                <View
+                                    key={i}
+                                    style={{
+                                        width: 50,
+                                        height: 50,
+                                        backgroundColor: theme.colors.surfaceVariant,
+                                        borderRadius: 8,
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    <MaterialCommunityIcons
+                                        name="file"
+                                        size={24}
+                                        color={theme.colors.onSurfaceVariant}
+                                    />
+                                </View>
+                            ))}
+                        </View>
+                    }
+                    onShowQR={handleShowQR}
+                />
+            ) : (
+                /* Nearby Devices Section with Icon Actions */
+                <View style={[styles.devicesHeader, { backgroundColor: theme.colors.surface }]}>
+                    <Text style={[styles.devicesTitle, { color: theme.colors.onSurface }]}>
+                        Nearby devices
                     </Text>
-                    <IconButton
-                        icon="close"
-                        size={16}
-                        onPress={() => setSelectedFiles([])}
-                        iconColor={theme.colors.primary}
-                    />
-                </View>
+                    <View style={styles.iconActions}>
+                        <IconButton
+                            icon="refresh"
+                            size={24}
+                            iconColor={theme.colors.onSurface}
+                            onPress={handleRefresh}
+                        />
+                        <IconButton
+                            icon="qrcode-scan"
+                            size={24}
+                            iconColor={theme.colors.onSurface}
+                            onPress={() => setShowQRScanner(true)}
+                        />
+                            <IconButton
+                                icon={showFavoritesOnly ? 'heart' : 'heart-outline'}
+                                size={24}
+                                iconColor={theme.colors.onSurface}
+                                onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                            />
+                            <IconButton
+                                icon="cog"
+                                size={24}
+                                iconColor={theme.colors.onSurface}
+                                onPress={() => router.push('/settings')}
+                            />
+                        </View>
+                    </View>
             )}
 
-            {/* Filters */}
-            <View style={styles.filtersContainer}>
-                <Chip
-                    selected={showFavoritesOnly}
-                    onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                    icon="star"
-                    style={{ backgroundColor: showFavoritesOnly ? theme.colors.primary : theme.colors.surfaceVariant }}
-                    textStyle={{ color: showFavoritesOnly ? theme.colors.onPrimary : theme.colors.onSurfaceVariant }}
+            {/* Manual Sending Button (if no favorites filter) */}
+            {
+                !showFavoritesOnly && (
+                    <Pressable
+                        style={[styles.manualButton, { backgroundColor: theme.colors.surfaceVariant }]}
+                        onPress={() => setShowManualSending(true)}
                 >
-                    {t('send.favorites')} {favoriteDevices.length > 0 && `(${favoriteDevices.length})`}
-                </Chip>
-                <Chip
-                    onPress={() => setShowManualSending(true)}
-                    icon="plus-circle"
-                    style={{ backgroundColor: theme.colors.surfaceVariant }}
-                >
-                    {t('send.manualSending')}
-                </Chip>
-            </View>
+                        <Text style={[styles.manualButtonText, { color: theme.colors.onSurface }]}>
+                            Manual Sending
+                        </Text>
+                    </Pressable>
+                )
+            }
 
             {/* Devices List */}
             {isScanning && devices.length === 0 ? (
-                <DeviceSkeletonLoader count={3} />
+                <MinimalDeviceLoader />
             ) : (
                 <FlatList
                     data={devices}
@@ -271,12 +377,30 @@ export default function SendScreen() {
                 />
             )}
 
-            {/* Refresh FAB */}
+            {/* Troubleshoot Link */}
+            <Pressable
+                style={styles.troubleshoot}
+                onPress={() => showAlert('Troubleshoot', 'Troubleshooting help issues')}
+            >
+                <Text style={[styles.troubleshootText, { color: theme.colors.outline }]}>
+                    Troubleshoot
+                </Text>
+            </Pressable>
+
+            {/* Add Files FAB */}
             <FAB
-                icon={isScanning ? 'loading' : 'refresh'}
+                icon="plus"
                 style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-                onPress={handleRefresh}
-                loading={isScanning}
+                color={theme.colors.onPrimary}
+                onPress={() => setShowFileTypePicker(true)}
+                label={selectedFiles.length === 0 ? "Add" : undefined}
+            />
+
+            {/* File Type Picker Modal */}
+            <FileTypePickerModal
+                visible={showFileTypePicker}
+                onClose={() => setShowFileTypePicker(false)}
+                onTypeSelect={handleFileTypeSelect}
             />
 
             {/* Text Input Sheet */}
@@ -292,6 +416,34 @@ export default function SendScreen() {
                 onClose={() => setShowManualSending(false)}
                 onConnect={handleManualConnect}
             />
+
+            <ThemedAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                onDismiss={hideAlert}
+                buttons={alert.buttons}
+            />
+
+            <QRScannerModal
+                visible={showQRScanner}
+                onClose={() => setShowQRScanner(false)}
+                onScan={handleQRScan}
+            />
+
+            <QRDisplayModal
+                visible={showQRDisplay}
+                onClose={() => setShowQRDisplay(false)}
+                data={qrData}
+            />
+
+            <SelectedFilesModal
+                visible={showSelectedFilesModal}
+                onClose={() => setShowSelectedFilesModal(false)}
+                files={selectedFiles}
+                onRemove={handleRemoveFile}
+                onRemoveAll={handleRemoveAll}
+            />
         </View>
     );
 }
@@ -300,29 +452,42 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    selectedFilesContainer: {
+    devicesHeader: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: 16,
-        paddingVertical: 8,
-        marginHorizontal: 16,
-        marginBottom: 8,
-        borderRadius: 12,
-        gap: 8,
+        paddingVertical: 12,
     },
-    selectedFilesText: {
-        flex: 1,
-        fontSize: 14,
+    devicesTitle: {
+        fontSize: 18,
         fontWeight: '600',
     },
-    filtersContainer: {
+    iconActions: {
         flexDirection: 'row',
-        paddingHorizontal: 16,
-        paddingBottom: 8,
-        gap: 8,
+        gap: 4,
+    },
+    manualButton: {
+        marginHorizontal: 16,
+        marginVertical: 8,
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    manualButtonText: {
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    troubleshoot: {
+        paddingVertical: 16,
+        alignItems: 'center',
+    },
+    troubleshootText: {
+        fontSize: 14,
+        fontWeight: '500',
     },
     listContent: {
-        paddingBottom: 100,
+        paddingBottom: 140,
     },
     emptyListContent: {
         flex: 1,

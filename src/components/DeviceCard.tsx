@@ -2,15 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, {
-    FadeInRight,
-    FadeOutLeft,
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withTiming,
-} from 'react-native-reanimated';
-import { GlassCard } from './ui/GlassCard';
+import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 import type { Device } from '../types/device';
 import type { AppTheme } from '../theme/colors';
 
@@ -21,37 +13,50 @@ interface DeviceCardProps {
     isFavorite?: boolean;
 }
 
-export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onPress, onFavorite, isFavorite = false }) => {
+export const DeviceCard: React.FC<DeviceCardProps> = ({
+    device,
+    onPress,
+    onFavorite,
+    isFavorite = false
+}) => {
     const theme = useTheme<AppTheme>();
-    const pulseScale = useSharedValue(1);
 
-    // Pulse animation for online devices
-    React.useEffect(() => {
-        if (device.isOnline) {
-            pulseScale.value = withSequence(
-                withTiming(1.2, { duration: 1000 }),
-                withTiming(1, { duration: 1000 })
-            );
-        }
-    }, [device.isOnline]);
-
-    const pulseStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: pulseScale.value }],
-    }));
-
+    // Get device type icon (laptop, phone, tablet)
     const getDeviceIcon = (): string => {
         switch (device.deviceType) {
             case 'mobile':
                 return 'cellphone';
             case 'desktop':
-                return 'monitor';
+                return 'laptop';
             case 'server':
                 return 'server';
             case 'web':
                 return 'web';
             default:
-                return 'devices';
+                return 'laptop'; // Default to laptop like official app
         }
+    };
+
+    // Generate a consistent hashtag from device fingerprint
+    const getHashtag = (): string => {
+        // Use last 2 characters of fingerprint for hashtag number
+        const fp = device.fingerprint || '00';
+        const last2 = fp.slice(-2);
+        // Convert to number (hex to dec)
+        const num = parseInt(last2, 16) % 100;
+        return `#${num.toString().padStart(2, '0')}`;
+    };
+
+    // Get OS/Platform name
+    const getPlatform = (): string => {
+        if (device.deviceModel) {
+            if (device.deviceModel.toLowerCase().includes('windows')) return 'Windows';
+            if (device.deviceModel.toLowerCase().includes('android')) return 'Android';
+            if (device.deviceModel.toLowerCase().includes('ios')) return 'iOS';
+            if (device.deviceModel.toLowerCase().includes('mac')) return 'macOS';
+            if (device.deviceModel.toLowerCase().includes('linux')) return 'Linux';
+        }
+        return device.deviceType === 'mobile' ? 'Mobile' : 'Desktop';
     };
 
     return (
@@ -60,59 +65,51 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onPress, onFavor
             exiting={FadeOutLeft.duration(200)}
             style={styles.container}
         >
-            <Pressable onPress={() => onPress(device)}>
-                <GlassCard>
-                    <View style={styles.content}>
-                        {/* Device Icon */}
-                        <View
-                            style={[
-                                styles.iconContainer,
-                                { backgroundColor: theme.colors.primaryContainer },
-                            ]}
-                        >
-                            <MaterialCommunityIcons
-                                name={getDeviceIcon() as any}
-                                size={32}
-                                color={theme.colors.primary}
-                            />
-                        </View>
+            <Pressable
+                onPress={() => onPress(device)}
+                style={[styles.card, { backgroundColor: theme.colors.surface }]}
+            >
+                <View style={styles.content}>
+                    {/* Device Icon */}
+                    <MaterialCommunityIcons
+                        name={getDeviceIcon() as any}
+                        size={32}
+                        color={theme.colors.onSurface}
+                        style={styles.deviceIcon}
+                    />
 
-                        {/* Device Info */}
-                        <View style={styles.info}>
-                            <Text style={{ color: theme.colors.onSurface, fontSize: 16, fontWeight: '500' }}>
-                                {device.alias}
-                            </Text>
-                            <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}>
-                                {device.ipAddress}
-                            </Text>
-                            {device.deviceModel && (
-                                <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}>
-                                    {device.deviceModel}
+                    {/* Device Info */}
+                    <View style={styles.info}>
+                        <Text style={[styles.deviceName, { color: theme.colors.onSurface }]}>
+                            {device.alias}
+                        </Text>
+                        <View style={styles.tags}>
+                            {/* Hashtag Tag */}
+                            <View style={[styles.tag, { backgroundColor: theme.colors.surfaceVariant }]}>
+                                <Text style={[styles.tagText, { color: theme.colors.onSurfaceVariant }]}>
+                                    {getHashtag()}
                                 </Text>
-                            )}
+                            </View>
+                            {/* OS/Platform Tag */}
+                            <View style={[styles.tag, { backgroundColor: theme.colors.surfaceVariant }]}>
+                                <Text style={[styles.tagText, { color: theme.colors.onSurfaceVariant }]}>
+                                    {getPlatform()}
+                                </Text>
+                            </View>
                         </View>
-
-                        {/* Favorite Button */}
-                        {onFavorite && (
-                            <Pressable onPress={onFavorite} style={styles.favoriteButton}>
-                                <MaterialCommunityIcons
-                                    name={isFavorite ? 'star' : 'star-outline'}
-                                    size={24}
-                                    color={isFavorite ? theme.colors.primary : theme.colors.onSurfaceVariant}
-                                />
-                            </Pressable>
-                        )}
-
-                        {/* Online Status */}
-                        <Animated.View style={pulseStyle}>
-                            <MaterialCommunityIcons
-                                name="circle"
-                                size={12}
-                                color={device.isOnline ? theme.colors.secondary : theme.colors.outline}
-                            />
-                        </Animated.View>
                     </View>
-                </GlassCard>
+
+                    {/* Favorite Heart */}
+                    {onFavorite && (
+                        <Pressable onPress={onFavorite} style={styles.favoriteButton}>
+                            <MaterialCommunityIcons
+                                name={isFavorite ? 'heart' : 'heart-outline'}
+                                size={24}
+                                color={isFavorite ? theme.colors.error : theme.colors.onSurfaceVariant}
+                            />
+                        </Pressable>
+                    )}
+                </View>
             </Pressable>
         </Animated.View>
     );
@@ -121,26 +118,43 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onPress, onFavor
 const styles = StyleSheet.create({
     container: {
         marginHorizontal: 16,
-        marginVertical: 8,
+        marginVertical: 6,
+    },
+    card: {
+        borderRadius: 12,
+        overflow: 'hidden',
     },
     content: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
+        gap: 12,
     },
-    iconContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 16,
+    deviceIcon: {
+        width: 32,
     },
     info: {
         flex: 1,
+        gap: 6,
+    },
+    deviceName: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    tags: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    tag: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    tagText: {
+        fontSize: 12,
+        fontWeight: '500',
     },
     favoriteButton: {
-        padding: 8,
-        marginRight: 8,
+        padding: 4,
     },
 });

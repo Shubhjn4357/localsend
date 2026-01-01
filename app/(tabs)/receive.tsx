@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
-import { Text, Switch, Chip, useTheme } from 'react-native-paper';
+import { Text, Switch, Chip, useTheme, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Network from 'expo-network';
 import { CurlySpinner } from '@/components/CurlySpinner';
+import { QRScannerModal } from '@/components/QRScannerModal';
+import { QRDisplayModal } from '@/components/QRDisplayModal';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import type { AppTheme } from '@/theme/colors';
@@ -13,6 +17,7 @@ import type { AppTheme } from '@/theme/colors';
 export default function ReceiveScreen() {
     const { t } = useTranslation();
     const theme = useTheme<AppTheme>();
+    const insets = useSafeAreaInsets();
     const [showDeviceInfo, setShowDeviceInfo] = useState(false);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
@@ -30,19 +35,50 @@ export default function ReceiveScreen() {
         useFavoritesStore.getState().loadFavorites();
     }, []);
 
-    return (
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <LinearGradient
-                colors={
-                    theme.dark
-                        ? ['#0F172A', '#1E293B', '#334155']
-                        : ['#F8FAFC', '#E0E7FF', '#FCE7F3']
-                }
-                style={StyleSheet.absoluteFill}
-            />
+    const [showQRScanner, setShowQRScanner] = useState(false);
+    const [showQRDisplay, setShowQRDisplay] = useState(false);
+    const [qrData, setQrData] = useState('');
 
+    const handleShowQR = async () => {
+        const ip = await Network.getIpAddressAsync();
+        // Format: localsend:<port>:<alias>:<ip> (Standard LocalSend format might differ, but this works for custom)
+        // Actually, let's use a simpler format or try to match LocalSend.
+        // LocalSend usually broadcasts. Manual input often takes IP.
+        const data = `localsend:${serverPort}:${deviceName}:${ip}`;
+        setQrData(data);
+        setShowQRDisplay(true);
+    };
+
+    const handleQRScan = (data: string) => {
+        console.log('Scanned from Receive:', data);
+        // data usually contains "localsend:port:alias:ip" or similar, or just IP
+        // TODO: Validate and connect/add to trusted
+        // For now, just logging
+    };
+
+    return (
+        <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
             {/* Main Content */}
             <View style={styles.content}>
+
+                {/* Header Actions */}
+                <View style={styles.headerActions}>
+                    <IconButton
+                        icon="qrcode"
+                        size={24}
+                        iconColor={theme.colors.onSurface}
+                        style={styles.scanButton}
+                        onPress={handleShowQR}
+                    />
+                    <IconButton
+                        icon="qrcode-scan"
+                        size={24}
+                        iconColor={theme.colors.onSurface}
+                        style={styles.scanButton}
+                        onPress={() => setShowQRScanner(true)}
+                    />
+                </View>
+
                 {/* Center Spinner Animation */}
                 <Animated.View entering={FadeIn} style={styles.spinnerContainer}>
                     <CurlySpinner size={120} color={theme.colors.primary} />
@@ -188,6 +224,20 @@ export default function ReceiveScreen() {
                     </Text>
                 </Animated.View>
             </View>
+
+            <QRScannerModal
+                visible={showQRScanner}
+                onClose={() => setShowQRScanner(false)}
+                onScan={handleQRScan}
+            />
+
+            <QRDisplayModal
+                visible={showQRDisplay}
+                onClose={() => setShowQRDisplay(false)}
+                data={qrData}
+                title="Your Device"
+                instruction="Ask the sender to scan this QR code to connect to your device."
+            />
         </View>
     );
 }
@@ -195,6 +245,18 @@ export default function ReceiveScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    headerActions: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        zIndex: 10,
+        flexDirection: 'row',
+        gap: 8,
+    },
+    scanButton: {
+        backgroundColor: 'rgba(0,0,0,0.05)',
+        margin: 0,
     },
     content: {
         flex: 1,

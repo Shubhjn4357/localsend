@@ -40,41 +40,41 @@ export const ColorSchemes = {
         },
     },
 
-    // LocalSend - Olive/Sage green theme from screenshots
+    // LocalSend - Warm amber/coffee theme
     localsend: {
         light: {
-            primary: '#6B7C5A',
-            primaryContainer: '#D4E4C5',
-            secondary: '#8B9B7A',
-            secondaryContainer: '#DDE8D0',
-            tertiary: '#7A8B6B',
-            tertiaryContainer: '#D0E4C5',
-            background: '#F8FAF5',
-            surface: '#FEFFFE',
-            surfaceVariant: '#E1E8DC',
+            primary: '#D97706', // Amber 600
+            primaryContainer: '#FEF3C7', // Amber 100
+            secondary: '#92400E', // Amber 800
+            secondaryContainer: '#FDE68A', // Amber 200
+            tertiary: '#B45309', // Amber 700
+            tertiaryContainer: '#FCD34D', // Amber 300
+            background: '#FFFBEB', // Amber 50
+            surface: '#FEFCE8', // Yellow 50
+            surfaceVariant: '#FEF3C7', // Amber 100
             onPrimary: '#FFFFFF',
             onSecondary: '#FFFFFF',
-            onBackground: '#1A1C19',
-            onSurface: '#1A1C19',
-            outline: '#74796D',
-            error: '#BA1A1A',
+            onBackground: '#78350F', // Amber 900
+            onSurface: '#78350F',
+            outline: '#A16207', // Amber 700
+            error: '#DC2626',
         },
         dark: {
-            primary: '#B8CCA9',
-            primaryContainer: '#525F44',
-            secondary: '#C1D0B4',
-            secondaryContainer: '#6A7960',
-            tertiary: '#ACB8A0',
-            tertiaryContainer: '#5F6A56',
-            background: '#1A1C19',
-            surface: '#1A1C19',
-            surfaceVariant: '#43483E',
-            onPrimary: '#293426',
-            onSecondary: '#2E3A2A',
-            onBackground: '#E2E3DD',
-            onSurface: '#E2E3DD',
-            outline: '#8D9286',
-            error: '#FFB4AB',
+            primary: '#FCD34D', // Amber 300
+            primaryContainer: '#92400E', // Amber 800
+            secondary: '#FDE68A', // Amber 200
+            secondaryContainer: '#78350F', // Amber 900
+            tertiary: '#FEF3C7', // Amber 100
+            tertiaryContainer: '#B45309', // Amber 700
+            background: '#1C1917', // Stone 900
+            surface: '#292524', // Stone 800
+            surfaceVariant: '#44403C', // Stone 700
+            onPrimary: '#451A03', // Amber 950
+            onSecondary: '#451A03',
+            onBackground: '#FEF3C7',
+            onSurface: '#FEF3C7',
+            outline: '#A8A29E', // Stone 400
+            error: '#FCA5A5',
         },
     },
 

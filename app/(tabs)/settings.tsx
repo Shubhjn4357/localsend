@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, Pressable, Alert, Linking, Modal, Platform } from 'react-native';
+import { StyleSheet, View, ScrollView, Pressable, Linking, Modal, Platform } from 'react-native';
 import { Text, Switch, useTheme, Divider, RadioButton, IconButton } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { StorageAccessFramework } from 'expo-file-system/legacy';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { DeviceNameDialog } from '@/components/DeviceNameDialog';
 import { PrivacyPolicyScreen } from '@/components/PrivacyPolicyScreen';
+import { ThemedAlert } from '@/components/ThemedAlert';
 import type { AppTheme } from '@/theme/colors';
 import type { ThemeMode, ColorScheme, Language, DestinationFolder } from '@/types/settings';
 import { LANGUAGES, COLOR_SCHEMES, DESTINATION_FOLDERS } from '@/types/settings';
@@ -16,6 +18,7 @@ import { LOCALSEND_VERSION, APP_DEVELOPER, CHANGELOG } from '@/utils/constants';
 export default function SettingsScreen() {
     const { t } = useTranslation();
     const theme = useTheme<AppTheme>();
+    const insets = useSafeAreaInsets();
     const [showChangelog, setShowChangelog] = useState(false);
     const [expandedLanguages, setExpandedLanguages] = useState(false);
     const [expandedColorSchemes, setExpandedColorSchemes] = useState(false);
@@ -39,6 +42,7 @@ export default function SettingsScreen() {
     const requirePin = useSettingsStore((state) => state.requirePin);
     const pin = useSettingsStore((state) => state.pin);
     const destination = useSettingsStore((state) => state.destination);
+    const customDestination = useSettingsStore((state) => state.customDestination);
     const saveToGallery = useSettingsStore((state) => state.saveToGallery);
     const autoFinish = useSettingsStore((state) => state.autoFinish);
     const saveHistory = useSettingsStore((state) => state.saveHistory);
@@ -46,6 +50,7 @@ export default function SettingsScreen() {
     const setQuickSaveForFavorites = useSettingsStore((state) => state.setQuickSaveForFavorites);
     const setRequirePin = useSettingsStore((state) => state.setRequirePin);
     const setDestination = useSettingsStore((state) => state.setDestination);
+    const setCustomDestination = useSettingsStore((state) => state.setCustomDestination);
     const setSaveToGallery = useSettingsStore((state) => state.setSaveToGallery);
     const setAutoFinish = useSettingsStore((state) => state.setAutoFinish);
     const setSaveHistory = useSettingsStore((state) => state.setSaveHistory);
@@ -58,16 +63,22 @@ export default function SettingsScreen() {
 
     const currentYear = new Date().getFullYear();
 
+    const [alert, setAlert] = useState<{ visible: boolean; title: string; message: string; buttons?: any[] }>({
+        visible: false,
+        title: '',
+        message: ''
+    });
+
+    const showAlert = (title: string, message: string, buttons?: any[]) => {
+        setAlert({ visible: true, title, message, buttons });
+    };
+
+    const hideAlert = () => {
+        setAlert(prev => ({ ...prev, visible: false }));
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <LinearGradient
-                colors={
-                    theme.dark
-                        ? ['#0F172A', '#1E293B', '#334155']
-                        : ['#F8FAFC', '#E0E7FF', '#FCE7F3']
-                }
-                style={StyleSheet.absoluteFill}
-            />
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* General Section */}
@@ -168,7 +179,7 @@ export default function SettingsScreen() {
                     <SettingItem
                         icon="folder"
                         label="Destination"
-                        value={DESTINATION_FOLDERS[destination]}
+                        value={destination === 'custom' && customDestination ? decodeURIComponent(customDestination.split('%3A').pop() || customDestination) : DESTINATION_FOLDERS[destination]}
                         theme={theme}
                         onPress={() => setExpandedDestination(!expandedDestination)}
                         expandable
@@ -178,15 +189,38 @@ export default function SettingsScreen() {
                         <RadioGroup
                             options={Object.entries(DESTINATION_FOLDERS).map(([key, label]) => ({ key, label }))}
                             selected={destination}
-                            onSelect={(key) => {
-                                if (key === 'custom' && Platform.OS === 'web') {
-                                    Alert.alert(
-                                        'Custom Folder',
-                                        'Custom folder selection is not available on web. On Android, you can select a custom destination folder.',
-                                        [{ text: 'OK' }]
-                                    );
+                            onSelect={async (key) => {
+                                if (key === 'custom') {
+                                    if (Platform.OS === 'android') {
+                                        try {
+                                            // Safety check for StorageAccessFramework
+                                            if (StorageAccessFramework && StorageAccessFramework.requestDirectoryPermissionsAsync) {
+                                                const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+                                                if (permissions.granted) {
+                                                    showAlert('Success', 'Folder selected: ' + permissions.directoryUri);
+                                                    setCustomDestination(permissions.directoryUri);
+                                                    setDestination(key as DestinationFolder);
+                                                }
+                                            } else {
+                                                showAlert('Error', 'Storage Access Framework not available on this device');
+                                            }
+                                        } catch (e) {
+                                            showAlert('Error', 'Failed to pick folder: ' + e);
+                                        }
+                                    } else {
+                                        showAlert(
+                                            'Custom Folder',
+                                            'Custom folder selection is only supported on Android in this version.',
+                                            [{ text: 'OK', onPress: hideAlert, style: 'default' }]
+                                        );
+                                        // Still allow setting it for now or revert? 
+                                        // If web/iOS, we probably can't easily support "writing to arbitrary folder" without OS limits.
+                                        // So maybe don't set it.
+                                        return;
+                                    }
+                                } else {
+                                    setDestination(key as DestinationFolder);
                                 }
-                                setDestination(key as DestinationFolder);
                             }}
                             theme={theme}
                         />
@@ -291,7 +325,7 @@ export default function SettingsScreen() {
                         onPress={() => {
                             const url = 'https://www.buymeacoffee.com/shubhjn';
                             Linking.openURL(url).catch(() => {
-                                Alert.alert(t('common.error'), 'Could not open link');
+                                showAlert(t('common.error'), 'Could not open link');
                             });
                         }}
                     />
@@ -341,6 +375,14 @@ export default function SettingsScreen() {
                     <PrivacyPolicyScreen />
                 </View>
             </Modal>
+
+            <ThemedAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                onDismiss={hideAlert}
+                buttons={alert.buttons}
+            />
         </View>
     );
 }

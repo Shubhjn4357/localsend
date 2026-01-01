@@ -17,13 +17,12 @@ export default function TabsLayout() {
                     tabBarActiveTintColor: theme.colors.primary,
                     tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
                     tabBarStyle: {
-                        backgroundColor: theme.colors.surface,
-                        borderTopColor: theme.colors.outline,
-                        borderTopWidth: 1,
+                        backgroundColor: theme.dark ? 'rgba(41, 37, 36, 0.8)' : 'rgba(254, 252, 232, 0.8)',
+                        borderTopWidth: 0,
                         elevation: 0,
                         height: 60 + insets.bottom,
                         paddingBottom: insets.bottom,
-                        paddingTop: 8,
+                        paddingTop: 8
                     },
                     tabBarLabelStyle: {
                         fontSize: 12,
@@ -42,29 +41,22 @@ export default function TabsLayout() {
                 }}
             >
                 <Tabs.Screen
-                    name="send"
-                    options={{
-                        title: 'Send',
-                        tabBarIcon: ({ color, size }) => (
-                            <MaterialCommunityIcons name="send" size={size} color={color} />
-                        ),
-                    }}
-                />
-                <Tabs.Screen
                     name="receive"
                     options={{
                         title: 'Receive',
+                        headerShown: false,
                         tabBarIcon: ({ color, size }) => (
                             <MaterialCommunityIcons name="download" size={size} color={color} />
                         ),
                     }}
                 />
                 <Tabs.Screen
-                    name="history"
+                    name="send"
                     options={{
-                        title: 'History',
+                        title: 'Send',
+                        headerShown: false,
                         tabBarIcon: ({ color, size }) => (
-                            <MaterialCommunityIcons name="history" size={size} color={color} />
+                            <MaterialCommunityIcons name="send" size={size} color={color} />
                         ),
                     }}
                 />

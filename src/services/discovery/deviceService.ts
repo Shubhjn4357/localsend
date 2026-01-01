@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import type { Device } from '../../types/device';
 import { udpService } from './udpService';
+import { httpDiscoveryService } from './httpDiscoveryService';
 import { useDeviceStore } from '../../stores/deviceStore';
 import { DEVICE_TIMEOUT } from '../../utils/constants';
 
@@ -15,10 +16,19 @@ class DeviceService {
         deviceStore.setScanning(true);
 
         try {
-            // Start UDP service
-            await udpService.start((device: Device) => {
-                this.handleDeviceDiscovered(device);
-            });
+            // Use HTTP discovery on web, UDP on native platforms
+            if (Platform.OS === 'web') {
+                console.log('Using HTTP discovery for web platform');
+                await httpDiscoveryService.startDiscovery((device: Device) => {
+                    this.handleDeviceDiscovered(device);
+                });
+            } else {
+                console.log('Using UDP multicast discovery for native platform');
+                // Start UDP service
+                await udpService.start((device: Device) => {
+                    this.handleDeviceDiscovered(device);
+                });
+            }
 
             // Start timeout checker
             this.startTimeoutChecker();
@@ -34,8 +44,12 @@ class DeviceService {
     async stopDiscovery(): Promise<void> {
         const deviceStore = useDeviceStore.getState();
 
-        // Stop UDP service
-        await udpService.stop();
+        // Stop appropriate discovery service based on platform
+        if (Platform.OS === 'web') {
+            await httpDiscoveryService.stopDiscovery();
+        } else {
+            await udpService.stop();
+        }
 
         // Stop timeout checker
         if (this.timeoutCheckInterval) {

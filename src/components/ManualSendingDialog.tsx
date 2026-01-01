@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, TextInput, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
-import { Modal, Portal, Text, Button, SegmentedButtons, useTheme } from 'react-native-paper';
+import { Modal, Portal, Text, Button, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import type { AppTheme } from '@/theme/colors';
 
 interface ManualSendingDialogProps {
@@ -12,7 +11,6 @@ interface ManualSendingDialogProps {
 }
 
 export function ManualSendingDialog({ visible, onClose, onConnect }: ManualSendingDialogProps) {
-    const { t } = useTranslation();
     const theme = useTheme<AppTheme>();
     const [selectedTab, setSelectedTab] = useState<'hashtag' | 'ip'>('hashtag');
     const [value, setValue] = useState('');
@@ -39,14 +37,16 @@ export function ManualSendingDialog({ visible, onClose, onConnect }: ManualSendi
                     { backgroundColor: theme.colors.surface },
                 ]}
             >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.keyboardAvoid}
-                >
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                     {/* Header */}
                     <View style={styles.header}>
+                        <MaterialCommunityIcons
+                            name="ip-network"
+                            size={24}
+                            color={theme.colors.onSurface}
+                        />
                         <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-                            {t('send.manualSending')}
+                            Enter address
                         </Text>
                         <Pressable onPress={handleCancel} hitSlop={8}>
                             <MaterialCommunityIcons
@@ -57,63 +57,95 @@ export function ManualSendingDialog({ visible, onClose, onConnect }: ManualSendi
                         </Pressable>
                     </View>
 
-                    {/* Tab Selector */}
+                    {/* Tabs */}
                     <View style={styles.tabContainer}>
-                        <SegmentedButtons
-                            value={selectedTab}
-                            onValueChange={(value) => {
-                                setSelectedTab(value as 'hashtag' | 'ip');
-                                setValue('');
-                            }}
-                            buttons={[
+                        <Pressable
+                            style={[
+                                styles.tab,
+                                selectedTab === 'hashtag' && styles.tabActive,
                                 {
-                                    value: 'hashtag',
-                                    label: t('send.hashtag'),
-                                    icon: 'pound',
-                                },
-                                {
-                                    value: 'ip',
-                                    label: t('send.ipAddress'),
-                                    icon: 'ip-network',
+                                    backgroundColor: selectedTab === 'hashtag'
+                                        ? theme.colors.primaryContainer
+                                        : theme.colors.surfaceVariant,
                                 },
                             ]}
-                            style={{ backgroundColor: theme.colors.surfaceVariant }}
-                        />
+                            onPress={() => {
+                                setSelectedTab('hashtag');
+                                setValue('');
+                            }}
+                        >
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    {
+                                        color: selectedTab === 'hashtag'
+                                            ? theme.colors.onPrimaryContainer
+                                            : theme.colors.onSurfaceVariant,
+                                    },
+                                ]}
+                            >
+                                Hashtag
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            style={[
+                                styles.tab,
+                                selectedTab === 'ip' && styles.tabActive,
+                                {
+                                    backgroundColor: selectedTab === 'ip'
+                                        ? theme.colors.primaryContainer
+                                        : theme.colors.surfaceVariant,
+                                },
+                            ]}
+                            onPress={() => {
+                                setSelectedTab('ip');
+                                setValue('');
+                            }}
+                        >
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    {
+                                        color: selectedTab === 'ip'
+                                            ? theme.colors.onPrimaryContainer
+                                            : theme.colors.onSurfaceVariant,
+                                    },
+                                ]}
+                            >
+                                IP Address
+                            </Text>
+                        </Pressable>
                     </View>
 
                     {/* Input Section */}
-                    <View style={styles.inputContainer}>
+                    <View style={styles.inputSection}>
                         {selectedTab === 'hashtag' ? (
-                            <>
-                                <View style={styles.inputWrapper}>
-                                    <Text style={[styles.hashSymbol, { color: theme.colors.primary }]}>
-                                        #
-                                    </Text>
+                            <View style={styles.hashtagInput}>
+                                <Text style={[styles.hashSymbol, { color: theme.colors.onSurface }]}>
+                                    #
+                                </Text>
                                     <TextInput
                                         style={[
                                             styles.input,
                                             {
+                                                flex: 1,
                                                 color: theme.colors.onSurface,
                                                 backgroundColor: theme.colors.surfaceVariant,
                                             },
                                         ]}
-                                        value={value}
-                                        onChangeText={setValue}
-                                        placeholder=""
-                                        placeholderTextColor={theme.colors.onSurfaceVariant}
-                                        keyboardType="number-pad"
-                                        autoFocus
-                                    />
-                                </View>
-                                <Text style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>
-                                    {t('send.hashtagExample')}
-                                </Text>
-                            </>
+                                    value={value}
+                                    onChangeText={setValue}
+                                    placeholder="123"
+                                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                                    keyboardType="number-pad"
+                                    autoFocus
+                                />
+                            </View>
                         ) : (
-                            <>
                                 <TextInput
                                     style={[
                                         styles.input,
+                                        styles.ipInput,
                                         {
                                             color: theme.colors.onSurface,
                                             backgroundColor: theme.colors.surfaceVariant,
@@ -121,32 +153,38 @@ export function ManualSendingDialog({ visible, onClose, onConnect }: ManualSendi
                                     ]}
                                     value={value}
                                     onChangeText={setValue}
-                                    placeholder={t('send.ipAddressExample')}
+                                    placeholder="192.168.1.100"
                                     placeholderTextColor={theme.colors.onSurfaceVariant}
                                     keyboardType="numeric"
                                     autoFocus
                                 />
-                            </>
                         )}
+
+                        {/* Helper Text */}
+                        <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+                            Example: 123{'\n'}IP Address: 192.0.0.
+                        </Text>
                     </View>
 
                     {/* Action Buttons */}
                     <View style={styles.actions}>
                         <Button
-                            mode="outlined"
+                            mode="text"
                             onPress={handleCancel}
-                            style={styles.actionButton}
                             textColor={theme.colors.onSurface}
+                            style={styles.button}
                         >
-                            {t('common.cancel')}
+                            Cancel
                         </Button>
                         <Button
                             mode="contained"
                             onPress={handleConfirm}
-                            style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
                             disabled={!value.trim()}
+                            buttonColor={theme.colors.primary}
+                            textColor={theme.colors.onPrimary}
+                            style={styles.button}
                         >
-                            {t('common.confirm')}
+                            Confirm
                         </Button>
                     </View>
                 </KeyboardAvoidingView>
@@ -157,55 +195,76 @@ export function ManualSendingDialog({ visible, onClose, onConnect }: ManualSendi
 
 const styles = StyleSheet.create({
     container: {
-        marginHorizontal: 24,
+        marginHorizontal: 20,
         borderRadius: 24,
         padding: 24,
-    },
-    keyboardAvoid: {
-        flex: 1,
+        width: '90%',
+        maxWidth: 400,
+        alignSelf: 'center',
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
+        gap: 12,
     },
     title: {
+        flex: 1,
         fontSize: 20,
-        fontWeight: '700',
+        fontWeight: '600',
     },
     tabContainer: {
+        flexDirection: 'row',
+        gap: 8,
         marginBottom: 20,
     },
-    inputContainer: {
+    tab: {
+        flex: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    tabActive: {
+        // Active state handled by backgroundColor
+    },
+    tabText: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    inputSection: {
         marginBottom: 24,
     },
-    inputWrapper: {
+    hashtagInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
+        gap: 8,
     },
     hashSymbol: {
-        fontSize: 24,
+        fontSize: 36,
         fontWeight: '700',
-        marginRight: 8,
     },
     input: {
-        flex: 1,
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingVertical: 14,
         borderRadius: 12,
-        fontSize: 16,
+        fontSize: 18,
+        fontWeight: '500',
     },
-    hint: {
-        fontSize: 14,
-        marginTop: 8,
+    ipInput: {
+        width: '100%',
+    },
+    helperText: {
+        fontSize: 13,
+        marginTop: 12,
+        lineHeight: 18,
     },
     actions: {
         flexDirection: 'row',
+        justifyContent: 'flex-end',
         gap: 12,
     },
-    actionButton: {
-        flex: 1,
+    button: {
+        minWidth: 100,
     },
 });

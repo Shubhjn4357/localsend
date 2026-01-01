@@ -1,6 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 
 export interface PickedFile {
     uri: string;
@@ -37,8 +37,7 @@ class PickerService {
             // Request permissions
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission Required', 'Please grant media library permission to select files.');
-                return [];
+                throw new Error('Please grant media library permission to select files.');
             }
 
             const result = await ImagePicker.launchImageLibraryAsync({
@@ -63,8 +62,7 @@ class PickerService {
 
     async pickFolder(): Promise<PickedFile[]> {
         if (Platform.OS === 'web') {
-            Alert.alert('Not Supported', 'Folder picking is not supported on web.');
-            return [];
+            throw new Error('Folder picking is not supported on web.');
         }
 
         // On Android, use document picker with directory mode
@@ -91,48 +89,35 @@ class PickerService {
 
     async pickApp(): Promise<PickedFile[]> {
         if (Platform.OS !== 'android') {
-            Alert.alert('Not Supported', 'App selection is only available on Android');
-            return [];
-        }
-
-        // For now, show an info message. Full implementation would require native module
-        Alert.alert(
-            'App Picker',
-            'Select an installed app to share its APK file. This feature requires additional setup.',
-            [{ text: 'OK' }]
-        );
-
-        return [];
-    }
-
-    async pickInstalledApp(): Promise<PickedFile[]> {
-        if (Platform.OS !== 'android') {
-            Alert.alert('Not Supported', 'App selection is only available on Android');
-            return [];
+            throw new Error('App selection is only available on Android');
         }
 
         try {
-            // This would require a native module to get installed apps
-            // For now, we'll use document picker as fallback to select APK files
+            // On Android, we can look for .apk files
+            // To properly list installed apps and extract them, we would need a native module
+            // For now, allow picking .apk files directly
             const result = await DocumentPicker.getDocumentAsync({
                 type: 'application/vnd.android.package-archive',
-                multiple: false,
+                multiple: true,
+                copyToCacheDirectory: false,
             });
 
-            if (result.canceled) {
-                return [];
-            }
+            if (result.canceled) return [];
 
             return result.assets.map((asset) => ({
                 uri: asset.uri,
                 name: asset.name,
                 size: asset.size || 0,
-                mimeType: asset.mimeType || 'application/vnd.android.package-archive',
+                mimeType: 'application/vnd.android.package-archive',
             }));
         } catch (error) {
             console.error('Error picking app:', error);
             throw error;
         }
+    }
+
+    async pickInstalledApp(): Promise<PickedFile[]> {
+        return this.pickApp();
     }
 }
 

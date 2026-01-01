@@ -7,14 +7,28 @@ import * as ExpoDevice from 'expo-device';
 import * as Crypto from 'expo-crypto';
 
 // Only import UDP on native platforms
-let dgram: any = null;
-let Socket: any = null;
+// Import dgram for UDP socket functionality (only on native platforms)
+type DgramSocket = {
+    bind: (port: number, callback?: () => void) => void;
+    addMembership: (multicastAddress: string) => void;
+    dropMembership: (multicastAddress: string) => void;
+    send: (buffer: Uint8Array, offset: number, length: number, port: number, address: string, callback?: (err: any) => void) => void;
+    on: (event: string, callback: (...args: any[]) => void) => void;
+    close: () => void;
+    _sBound?: boolean;
+};
+
+type DgramModule = {
+    createSocket: (options: { type: string; reuseAddr?: boolean }) => DgramSocket;
+};
+
+let dgram: DgramModule | null = null;
 if (Platform.OS !== 'web') {
     dgram = require('react-native-udp');
 }
 
 class UDPService {
-    private socket: any | null = null;
+    private socket: DgramSocket | null = null;
     private announcementInterval: NodeJS.Timeout | null = null;
     private isRunning = false;
     private fingerprint: string = '';
@@ -48,6 +62,10 @@ class UDPService {
 
         try {
             // Create UDP socket
+            if (!dgram) {
+                throw new Error('UDP not available on this platform');
+            }
+
             this.socket = dgram.createSocket({
                 type: 'udp4',
                 reuseAddr: true,
@@ -98,7 +116,13 @@ class UDPService {
         // Close socket
         if (this.socket) {
             try {
-                this.socket.dropMembership(MULTICAST_GROUP);
+                // Try to drop membership, but don't fail if not bound
+                try {
+                    this.socket.dropMembership(MULTICAST_GROUP);
+                } catch (membershipError) {
+                    // Socket might not have been bound, ignore
+                    console.log('Could not drop membership (socket may not have been bound)');
+                }
                 this.socket.close();
             } catch (error) {
                 console.error('Error closing socket:', error);
@@ -121,7 +145,11 @@ class UDPService {
     }
 
     private async sendAnnouncement(): Promise<void> {
-        if (!this.socket) return;
+        // Check if socket is ready and bound before sending
+        if (!this.socket || !this.isRunning) {
+            console.log('Socket not ready for announcement');
+            return;
+        }
 
         const settings = useSettingsStore.getState();
         const networkInfo = await getNetworkInfo();
@@ -138,9 +166,17 @@ class UDPService {
         };
 
         const message = JSON.stringify(announcement);
-        const buffer = Buffer.from(message);
+        // Use TextEncoder instead of Buffer (not available on React Native web)
+        const encoder = new TextEncoder();
+        const buffer = encoder.encode(message);
 
         try {
+            // Double-check socket is still available
+            if (!this.socket) {
+                console.log('Socket became null before send');
+                return;
+            }
+
             this.socket.send(
                 buffer,
                 0,
@@ -158,7 +194,7 @@ class UDPService {
         }
     }
 
-    private handleMessage(msg: Buffer, rinfo: any): void {
+    private handleMessage(msg: any, rinfo: any): void {
         try {
             const message = msg.toString();
             const announcement: DeviceAnnouncement = JSON.parse(message);

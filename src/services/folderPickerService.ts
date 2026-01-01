@@ -1,11 +1,10 @@
 import * as DocumentPicker from 'expo-document-picker';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 class FolderPickerService {
     async pickCustomFolder(): Promise<string | null> {
         if (Platform.OS === 'web') {
-            Alert.alert('Not Supported', 'Folder picking is not supported on web. Using default Downloads folder.');
-            return null;
+            throw new Error('Folder picking is not supported on web. Using default Downloads folder.');
         }
 
         try {
@@ -26,8 +25,7 @@ class FolderPickerService {
             return folderPath;
         } catch (error) {
             console.error('Error picking folder:', error);
-            Alert.alert('Error', 'Failed to select folder');
-            return null;
+            throw new Error('Failed to select folder');
         }
     }
 }
