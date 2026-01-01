@@ -1,0 +1,85 @@
+{
+    "expo": {
+        "name": "LocalSend",
+        "slug": "localsend",
+        "version": "2.3.5b",
+        "orientation": "portrait",
+        "icon": "./assets/icon.png",
+        "userInterfaceStyle": "automatic",
+        "scheme": "localsend",
+        "platforms": [
+            "web",
+            "ios",
+            "android"
+        ],
+        "newArchEnabled": true,
+        "splash": {
+            "image": "./assets/splash.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#1a1a2e"
+        },
+        "assetBundlePatterns": [
+            "**/*"
+        ],
+        "ios": {
+            "supportsTablet": true,
+            "bundleIdentifier": "com.localsend.app",
+            "infoPlist": {
+                "NSLocalNetworkUsageDescription": "LocalSend needs access to your local network to discover nearby devices and transfer files securely.",
+                "NSBonjourServices": [
+                    "_localsend._tcp",
+                    "_localsend._udp"
+                ]
+            },
+            "deploymentTarget": "15.1"
+        },
+        "android": {
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/adaptive-icon.png",
+                "backgroundColor": "#1a1a2e"
+            },
+            "package": "com.localsend.app",
+            "permissions": [
+                "INTERNET",
+                "ACCESS_NETWORK_STATE",
+                "ACCESS_WIFI_STATE",
+                "CHANGE_WIFI_MULTICAST_STATE",
+                "FOREGROUND_SERVICE",
+                "POST_NOTIFICATIONS"
+            ],
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35
+        },
+        "web": {
+            "bundler": "metro",
+            "output": "static",
+            "favicon": "./assets/favicon.png"
+        },
+        "plugins": [
+            "expo-router",
+            [
+                "expo-build-properties",
+                {
+                    "android": {
+                        "enableProguardInReleaseBuilds": true,
+                        "enableShrinkResourcesInReleaseBuilds": true
+                    },
+                    "ios": {
+                        "useFrameworks": "static"
+                    }
+                }
+            ]
+        ],
+        "experiments": {
+            "typedRoutes": true
+        },
+        "extra": {
+            "router": {
+                "origin": false
+            },
+            "eas": {
+                "projectId": "localsend-unique-id"
+            }
+        }
+    }
+}

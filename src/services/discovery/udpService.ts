@@ -1,0 +1,209 @@
+import { Platform } from 'react-native';
+import type { Device, DeviceAnnouncement } from '../../types/device';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { getNetworkInfo } from '../../utils/network';
+import { MULTICAST_GROUP, MULTICAST_PORT, ANNOUNCEMENT_INTERVAL } from '../../utils/constants';
+import * as ExpoDevice from 'expo-device';
+import * as Crypto from 'expo-crypto';
+
+// Only import UDP on native platforms
+let dgram: any = null;
+let Socket: any = null;
+if (Platform.OS !== 'web') {
+    dgram = require('react-native-udp');
+}
+
+class UDPService {
+    private socket: any | null = null;
+    private announcementInterval: NodeJS.Timeout | null = null;
+    private isRunning = false;
+    private fingerprint: string = '';
+    private onDeviceDiscovered?: (device: Device) => void;
+
+    constructor() {
+        this.initFingerprint();
+    }
+
+    private async initFingerprint() {
+        try {
+            // Generate unique fingerprint from device ID
+            const deviceId = ExpoDevice.osBuildId || ExpoDevice.deviceName || 'unknown';
+            const hash = await Crypto.digestStringAsync(
+                Crypto.CryptoDigestAlgorithm.SHA256,
+                deviceId + Platform.OS
+            );
+            this.fingerprint = hash.substring(0, 16);
+        } catch (error) {
+            this.fingerprint = Math.random().toString(36).substring(7);
+        }
+    }
+
+    async start(onDeviceDiscovered: (device: Device) => void): Promise<void> {
+        if (this.isRunning || Platform.OS === 'web') {
+            console.log('UDP service already running or platform not supported');
+            return;
+        }
+
+        this.onDeviceDiscovered = onDeviceDiscovered;
+
+        try {
+            // Create UDP socket
+            this.socket = dgram.createSocket({
+                type: 'udp4',
+                reuseAddr: true,
+            });
+
+            // Bind to multicast port
+            this.socket.bind(MULTICAST_PORT, () => {
+                console.log(`UDP socket bound to port ${MULTICAST_PORT}`);
+
+                try {
+                    // Join multicast group
+                    this.socket?.addMembership(MULTICAST_GROUP);
+                    console.log(`Joined multicast group ${MULTICAST_GROUP}`);
+                } catch (error) {
+                    console.error('Failed to join multicast group:', error);
+                }
+            });
+
+            // Listen for incoming messages
+            this.socket.on('message', (msg, rinfo) => {
+                this.handleMessage(msg, rinfo);
+            });
+
+            this.socket.on('error', (err) => {
+                console.error('UDP socket error:', err);
+            });
+
+            this.isRunning = true;
+
+            // Start sending announcements
+            this.startAnnouncements();
+
+        } catch (error) {
+            console.error('Failed to start UDP service:', error);
+            throw error;
+        }
+    }
+
+    async stop(): Promise<void> {
+        if (!this.isRunning) return;
+
+        // Stop announcements
+        if (this.announcementInterval) {
+            clearInterval(this.announcementInterval);
+            this.announcementInterval = null;
+        }
+
+        // Close socket
+        if (this.socket) {
+            try {
+                this.socket.dropMembership(MULTICAST_GROUP);
+                this.socket.close();
+            } catch (error) {
+                console.error('Error closing socket:', error);
+            }
+            this.socket = null;
+        }
+
+        this.isRunning = false;
+        console.log('UDP service stopped');
+    }
+
+    private startAnnouncements(): void {
+        // Send initial announcement
+        this.sendAnnouncement();
+
+        // Send periodic announcements
+        this.announcementInterval = setInterval(() => {
+            this.sendAnnouncement();
+        }, ANNOUNCEMENT_INTERVAL);
+    }
+
+    private async sendAnnouncement(): Promise<void> {
+        if (!this.socket) return;
+
+        const settings = useSettingsStore.getState();
+        const networkInfo = await getNetworkInfo();
+
+        const announcement: DeviceAnnouncement = {
+            alias: settings.deviceAlias,
+            version: '2.3.5b',
+            deviceModel: ExpoDevice.modelName || undefined,
+            deviceType: Platform.OS === 'ios' || Platform.OS === 'android' ? 'mobile' : 'web',
+            fingerprint: this.fingerprint,
+            port: settings.serverPort,
+            protocol: 'https',
+            announce: true,
+        };
+
+        const message = JSON.stringify(announcement);
+        const buffer = Buffer.from(message);
+
+        try {
+            this.socket.send(
+                buffer,
+                0,
+                buffer.length,
+                MULTICAST_PORT,
+                MULTICAST_GROUP,
+                (err) => {
+                    if (err) {
+                        console.error('Failed to send announcement:', err);
+                    }
+                }
+            );
+        } catch (error) {
+            console.error('Error sending announcement:', error);
+        }
+    }
+
+    private handleMessage(msg: Buffer, rinfo: any): void {
+        try {
+            const message = msg.toString();
+            const announcement: DeviceAnnouncement = JSON.parse(message);
+
+            // Ignore our own announcements
+            if (announcement.fingerprint === this.fingerprint) {
+                return;
+            }
+
+            // Validate announcement
+            if (!announcement.alias || !announcement.fingerprint || !announcement.announce) {
+                return;
+            }
+
+            // Create device object
+            const device: Device = {
+                fingerprint: announcement.fingerprint,
+                alias: announcement.alias,
+                deviceType: announcement.deviceType,
+                deviceModel: announcement.deviceModel,
+                ipAddress: rinfo.address,
+                port: announcement.port,
+                protocol: announcement.protocol,
+                version: announcement.version,
+                lastSeen: Date.now(),
+                isOnline: true,
+            };
+
+            // Notify listeners
+            if (this.onDeviceDiscovered) {
+                this.onDeviceDiscovered(device);
+            }
+
+        } catch (error) {
+            console.error('Failed to parse UDP message:', error);
+        }
+    }
+
+    getFingerprint(): string {
+        return this.fingerprint;
+    }
+
+    isActive(): boolean {
+        return this.isRunning;
+    }
+}
+
+export const udpService = new UDPService();
