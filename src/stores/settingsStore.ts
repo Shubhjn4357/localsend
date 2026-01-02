@@ -20,6 +20,7 @@ interface SettingsStore {
     pin: string;
     destination: DestinationFolder;
     customDestination: string;
+    downloadPath: string; // Actual filesystem path for downloads
     saveToGallery: boolean;
     autoFinish: boolean;
     saveHistory: boolean;
@@ -29,6 +30,7 @@ interface SettingsStore {
     deviceId: string;
     serverRunning: boolean;
     serverPort: number;
+    bluetoothEnabled: boolean;
 
     // Legacy (keeping for compatibility)
     deviceAlias: string;
@@ -54,6 +56,7 @@ interface SettingsStore {
     setDeviceName: (name: string) => Promise<void>;
     setServerRunning: (running: boolean) => void;
     setServerPort: (port: number) => Promise<void>;
+    setBluetoothEnabled: (enabled: boolean) => Promise<void>;
 
     // Legacy actions
     setDeviceAlias: (alias: string) => void;
@@ -85,6 +88,7 @@ const defaultSettings = {
     pin: '',
     destination: 'downloads' as DestinationFolder,
     customDestination: '',
+    downloadPath: '', // Will be set to FileSystem.documentDirectory at runtime
     saveToGallery: true,
     autoFinish: true,
     saveHistory: true,
@@ -94,6 +98,7 @@ const defaultSettings = {
     deviceId: generateDeviceId(),
     serverRunning: false,
     serverPort: 53317,
+    bluetoothEnabled: true, // Bluetooth enabled by default
 
     // Legacy
     deviceAlias: generateDefaultAlias(),
@@ -185,6 +190,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
     },
 
+    setBluetoothEnabled: async (enabled) => {
+        set({ bluetoothEnabled: enabled });
+        await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
+    },
+
     setDeviceAlias: (alias) => set({ deviceAlias: alias, deviceName: alias }),
     setAutoAccept: (autoAccept) => set({ autoAccept }),
     setSaveDirectory: (directory) => set({ saveDirectory: directory }),
@@ -193,6 +203,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         const saved = await LocalStorage.get<Partial<SettingsStore>>(STORAGE_KEYS.SETTINGS);
         if (saved) {
             set(saved);
+        }
+
+        // Set downloadPath to default if not set        
+        const FileSystem = require('expo-file-system');
+        if (!get().downloadPath && FileSystem.documentDirectory) {
+            set({ downloadPath: FileSystem.documentDirectory });
         }
     },
 

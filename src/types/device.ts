@@ -5,10 +5,14 @@ export interface Device {
     deviceModel?: string;
     ipAddress: string;
     port: number;
-    protocol: 'http' | 'https';
+    protocol: 'http' | 'https' | 'bluetooth';
     version: string;
     lastSeen: number;
     isOnline: boolean;
+
+    // Optional Bluetooth/connection fields
+    bluetoothAddress?: string;
+    connectionType?: 'wifi' | 'bluetooth' | 'wifi-direct';
 }
 
 export interface DeviceAnnouncement {

@@ -1,4 +1,4 @@
-export const LOCALSEND_VERSION = '2.3.5b';
+export const LOCALSEND_VERSION = '3.1.0';
 export const PROTOCOL_VERSION = 'v2';
 export const APP_DEVELOPER = 'Shubh Jain';
 
@@ -44,6 +44,20 @@ export const FILE_TYPE_OPTIONS: Array<{
 
 // Changelog
 export const CHANGELOG = [
+    {
+        version: '3.1.0',
+        date: '2026-01-02',
+        changes: [
+            'Bluetooth BLE device discovery',
+            'Quick Share & AirDrop integration',
+            'Enhanced progress overlay with real-time speed/ETA',
+            'Transfer request dialog (manual accept/reject)',
+            'PIN authentication for secure transfers',
+            'Native system share support',
+            'Bluetooth settings toggle',
+            'Complete type-safety (0 TypeScript errors)',
+        ],
+    },
     {
         version: '2.3.5b',
         date: '2026-01-01',

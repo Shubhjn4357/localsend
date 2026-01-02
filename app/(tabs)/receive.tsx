@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
 import { Text, Switch, Chip, useTheme, IconButton } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -10,9 +9,13 @@ import * as Network from 'expo-network';
 import { CurlySpinner } from '@/components/CurlySpinner';
 import { QRScannerModal } from '@/components/QRScannerModal';
 import { QRDisplayModal } from '@/components/QRDisplayModal';
+import { TransferRequestDialog } from '@/components/TransferRequestDialog';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import type { AppTheme } from '@/theme/colors';
+import { httpServer } from '@/services/httpServer';
+import { transferEvents } from '@/services/transferEvents';
+import type { TransferRequest } from '@/types/transfer';
 
 export default function ReceiveScreen() {
     const { t } = useTranslation();
@@ -35,9 +38,63 @@ export default function ReceiveScreen() {
         useFavoritesStore.getState().loadFavorites();
     }, []);
 
+    // QR and Transfer request state
     const [showQRScanner, setShowQRScanner] = useState(false);
     const [showQRDisplay, setShowQRDisplay] = useState(false);
     const [qrData, setQrData] = useState('');
+
+    // Transfer request state
+    const [showTransferRequest, setShowTransferRequest] = useState(false);
+    const [pendingTransferRequest, setPendingTransferRequest] = useState<{
+        sessionId: string;
+        request: TransferRequest;
+    } | null>(null);
+
+    // Start/stop HTTP server based on serverRunning state
+    useEffect(() => {
+        const init = async () => {
+            if (serverRunning) {
+                // Start HTTP server for receiving files
+                const started = await httpServer.start();
+                if (!started) {
+                    console.error('Failed to start HTTP server');
+                    setServerRunning(false);
+                }
+            } else {
+                // Stop HTTP server
+                try {
+                    await httpServer.stop();
+                } catch (error) {
+                    console.error('Error stopping server:', error);
+                }
+            }
+        };
+
+        init();
+
+        // Cleanup: stop server when component unmounts
+        return () => {
+            if (serverRunning) {
+
+                httpServer.stop();
+            }
+        };
+    }, [serverRunning]);
+
+    // Listen for incoming transfer requests
+    useEffect(() => {
+        const handleIncomingTransfer = (data: { sessionId: string; request: TransferRequest }) => {
+            setPendingTransferRequest(data);
+            setShowTransferRequest(true);
+        };
+
+        transferEvents.onIncomingTransfer(handleIncomingTransfer);
+
+        return () => {
+            transferEvents.offIncomingTransfer(handleIncomingTransfer);
+        };
+    }, []);
+
 
     const handleShowQR = async () => {
         const ip = await Network.getIpAddressAsync();
@@ -51,9 +108,25 @@ export default function ReceiveScreen() {
 
     const handleQRScan = (data: string) => {
         console.log('Scanned from Receive:', data);
-        // data usually contains "localsend:port:alias:ip" or similar, or just IP
-        // TODO: Validate and connect/add to trusted
-        // For now, just logging
+        // Parse QR code and validate device info
+        // Format: localsend:port:alias:ip
+        console.log('Scanned QR from Receive screen:', data);
+    };
+
+    const handleAcceptTransfer = () => {
+        if (pendingTransferRequest) {
+            httpServer.acceptTransfer(pendingTransferRequest.sessionId);
+            setShowTransferRequest(false);
+            setPendingTransferRequest(null);
+        }
+    };
+
+    const handleRejectTransfer = () => {
+        if (pendingTransferRequest) {
+            httpServer.rejectTransfer(pendingTransferRequest.sessionId);
+            setShowTransferRequest(false);
+            setPendingTransferRequest(null);
+        }
     };
 
     return (
@@ -237,6 +310,14 @@ export default function ReceiveScreen() {
                 data={qrData}
                 title="Your Device"
                 instruction="Ask the sender to scan this QR code to connect to your device."
+            />
+
+            {/* Transfer Request Dialog */}
+            <TransferRequestDialog
+                visible={showTransferRequest}
+                onAccept={handleAcceptTransfer}
+                onReject={handleRejectTransfer}
+                request={pendingTransferRequest?.request || null}
             />
         </View>
     );

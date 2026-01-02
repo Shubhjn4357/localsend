@@ -2,9 +2,10 @@
   "expo": {
     "name": "LocalSend",
     "slug": "localsend",
-    "version": "2.3.5b",
+    "version": "3.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "resizeMode": "cover",
     "userInterfaceStyle": "automatic",
     "scheme": "localsend",
     "platforms": [
@@ -36,7 +37,8 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1a1a2e"
+        "backgroundColor": "#1a1a2e",
+        "resizeMode": "cover"
       },
       "package": "com.localsend.app",
       "permissions": [
@@ -45,7 +47,14 @@
         "ACCESS_WIFI_STATE",
         "CHANGE_WIFI_MULTICAST_STATE",
         "FOREGROUND_SERVICE",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_ADVERTISE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
       ],
       "minSdkVersion": 24,
       "compileSdkVersion": 35
@@ -53,7 +62,8 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "resizeMode": "cover"
     },
     "plugins": [
       "expo-router",
@@ -71,7 +81,8 @@
             "useFrameworks": "static"
           }
         }
-      ]
+      ],
+      "expo-share-intent"
     ],
     "experiments": {
       "typedRoutes": true

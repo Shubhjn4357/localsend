@@ -223,6 +223,13 @@ class UDPService {
                 isOnline: true,
             };
 
+            // Send HTTP POST /register response (LocalSend v2 protocol)
+            if (announcement.announce) {
+                this.sendRegisterResponse(device).catch(err => {
+                    console.error('Failed to send register response:', err);
+                });
+            }
+
             // Notify listeners
             if (this.onDeviceDiscovered) {
                 this.onDeviceDiscovered(device);
@@ -230,6 +237,40 @@ class UDPService {
 
         } catch (error) {
             console.error('Failed to parse UDP message:', error);
+        }
+    }
+
+    private async sendRegisterResponse(device: Device): Promise<void> {
+        try {
+            const settings = useSettingsStore.getState();
+
+            const response = {
+                alias: settings.deviceAlias,
+                version: '2.0',
+                deviceModel: Platform.OS,
+                deviceType: Platform.OS === 'ios' || Platform.OS === 'android' ? 'mobile' : 'desktop',
+                fingerprint: this.fingerprint,
+                port: settings.serverPort,
+                protocol: 'http', // Use HTTP for now, HTTPS requires SSL certificate
+                download: false,
+            };
+
+            // Send HTTP POST request
+            const url = `${device.protocol}://${device.ipAddress}:${device.port}/api/localsend/v2/register`;
+
+            await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(response),
+                signal: AbortSignal.timeout(2000), // 2 second timeout
+            });
+
+            console.log(`Sent register response to ${device.alias}`);
+        } catch (error) {
+            // Silently fail - device might not have HTTP server running yet
+            console.log(`Could not send register response: ${error}`);
         }
     }
 

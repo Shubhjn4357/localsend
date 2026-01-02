@@ -18,6 +18,8 @@ import { ThemedAlert } from '@/components/ThemedAlert';
 import { QRScannerModal } from '@/components/QRScannerModal';
 import { QRDisplayModal } from '@/components/QRDisplayModal';
 import { SelectedFilesModal } from '@/components/SelectedFilesModal';
+import { PinInputDialog } from '@/components/PinInputDialog';
+import { EnhancedProgressOverlay } from '@/components/EnhancedProgressOverlay';
 import { useDeviceStore } from '@/stores/deviceStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
@@ -25,6 +27,8 @@ import { useActiveTransfersStore } from '@/stores/activeTransfersStore';
 import { deviceService } from '@/services/discovery/deviceService';
 import { httpDiscoveryService } from '@/services/discovery/httpDiscoveryService';
 import { pickerService, type PickedFile } from '@/services/pickerService';
+import { fileTransferService } from '@/services/fileTransferService';
+import { shareViaSystem } from '@/services/nativeShare/systemShare';
 import type { Device } from '@/types/device';
 import type { AppTheme } from '@/theme/colors';
 import type { FileTypeOption } from '@/utils/constants';
@@ -39,10 +43,12 @@ export default function SendScreen() {
     const [showTextInput, setShowTextInput] = useState(false);
     const [showManualSending, setShowManualSending] = useState(false);
     const [showFileTypePicker, setShowFileTypePicker] = useState(false);
+    const [showProgressOverlay, setShowProgressOverlay] = useState(false);
 
     const allDevices = useDeviceStore((state) => state.devices);
     const isScanning = useDeviceStore((state) => state.isScanning);
     const setSelectedDevice = useDeviceStore((state) => state.setSelectedDevice);
+    const [selectedDevice, setLocalSelectedDevice] = useState<Device | null>(null);
 
     const favorites = useFavoritesStore((state) => state.favorites);
     const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
@@ -160,30 +166,54 @@ export default function SendScreen() {
         setAlert(prev => ({ ...prev, visible: false }));
     };
 
-    const handleSendFiles = useCallback(async (device: Device) => {
+    const handleSendFiles = useCallback((device: Device) => {
         if (selectedFiles.length === 0) {
             showAlert(t('send.selectFiles'), t('send.selectFilesFirst'));
             return;
         }
 
+
         setSelectedDevice(device);
+        setLocalSelectedDevice(device);
 
-        // Start transfer
-        selectedFiles.forEach((file) => {
-            const transferId = `${Date.now()}_${Math.random()}`;
-            startTransfer({
-                id: transferId,
-                fileName: file.name,
-                fileSize: file.size,
-                status: 'sending',
-                deviceName: device.alias,
-                deviceId: device.fingerprint,
-            });
-        });
+        setShowPinDialog(true);
+    }, [selectedFiles, t]);
 
-        showAlert(t('common.success'), `Starting transfer to ${device.alias}`);
-        setSelectedFiles([]);
-    }, [selectedFiles, setSelectedDevice, startTransfer, t]);
+    // PIN dialog state and handlers
+    const [showPinDialog, setShowPinDialog] = useState(false);
+
+    const performFileTransfer = useCallback(async (device: Device, pin?: string) => {
+        try {
+            showAlert(t('common.info'), `Starting transfer to ${device.alias}...`);
+            setShowProgressOverlay(true);  // Show progress overlay
+
+            // Send files with optional PIN
+            const sessionId = await fileTransferService.sendFiles(device, selectedFiles, pin);
+
+            if (sessionId) {
+                showAlert(t('common.success'), `Transfer completed to ${device.alias}`);
+                setSelectedFiles([]);
+                setSelectedDevice(null);
+            } else {
+                showAlert(t('common.error'), 'Failed to start transfer');
+            }
+        } catch (error) {
+            console.error('Transfer error:', error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            showAlert(t('common.error'), `Transfer failed: ${errorMessage}`);
+        }
+    }, [selectedFiles, t]);
+
+    const handlePinSubmit = useCallback(async (pin: string) => {
+        if (!selectedDevice) return;
+        await performFileTransfer(selectedDevice, pin);
+        setShowPinDialog(false);
+    }, [selectedDevice, performFileTransfer]);
+
+    const handlePinClose = useCallback(() => {
+        setShowPinDialog(false);
+        setSelectedDevice(null);
+    }, []);
 
     const handleRefresh = useCallback(() => {
         deviceService.stopDiscovery().then(() => {
@@ -443,6 +473,20 @@ export default function SendScreen() {
                 files={selectedFiles}
                 onRemove={handleRemoveFile}
                 onRemoveAll={handleRemoveAll}
+            />
+
+            {/* PIN Input Dialog */}
+            <PinInputDialog
+                visible={showPinDialog}
+                onClose={handlePinClose}
+                onSubmit={handlePinSubmit}
+                deviceName={selectedDevice?.alias || ''}
+            />
+
+            {/* Enhanced Progress Overlay */}
+            <EnhancedProgressOverlay
+                visible={showProgressOverlay}
+                onClose={() => setShowProgressOverlay(false)}
             />
         </View>
     );
