@@ -46,17 +46,17 @@ jobs:
       - name: Build iOS (Archive)
         run: |
           xcodebuild \
-            -workspace ios/localsend.xcworkspace \
-            -scheme localsend \
+            -workspace ios/LocalSend.xcworkspace \
+            -scheme LocalSend \
             -configuration Release \
-            -archivePath build/localsend.xcarchive \
+            -archivePath build/LocalSend.xcarchive \
             archive
       
       - name: Export IPA
         run: |
           xcodebuild \
             -exportArchive \
-            -archivePath build/localsend.xcarchive \
+            -archivePath build/LocalSend.xcarchive \
             -exportPath build \
             -exportOptionsPlist ios/exportOptions.plist
       
