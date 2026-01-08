@@ -11,6 +11,8 @@ import { createTheme } from '@/theme/colors';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useHistoryStore } from '@/stores/historyStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
+import { Onboarding } from '@/components/Onboarding';
+import { LocalStorage, STORAGE_KEYS } from '@/utils/storage';
 import '@/i18n'; // Initialize i18n
 import i18n from '@/i18n';
 
@@ -21,6 +23,7 @@ const queryClient = new QueryClient();
 
 export default function RootLayout() {
     const [appIsReady, setAppIsReady] = React.useState(false);
+    const [showOnboarding, setShowOnboarding] = React.useState(false);
     const systemColorScheme = useColorScheme();
     const themePreference = useSettingsStore((state) => state.theme);
     const colorSchemePreference = useSettingsStore((state) => state.colorScheme);
@@ -55,6 +58,10 @@ export default function RootLayout() {
                     i18n.changeLanguage(language);
                 }
 
+                // Check if onboarding is complete
+                const onboardingComplete = await LocalStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETE);
+                setShowOnboarding(!onboardingComplete);
+
                 // Small delay to ensure everything is loaded
                 await new Promise((resolve) => setTimeout(resolve, 500));
             } catch (e) {
@@ -75,6 +82,16 @@ export default function RootLayout() {
 
     if (!appIsReady) {
         return null;
+    }
+
+    if (showOnboarding) {
+        return (
+            <SafeAreaProvider>
+                <PaperProvider theme={theme}>
+                    <Onboarding onComplete={() => setShowOnboarding(false)} />
+                </PaperProvider>
+            </SafeAreaProvider>
+        );
     }
 
     return (

@@ -5,6 +5,8 @@ const STORAGE_KEYS = {
     HISTORY: '@localsend/history',
     FAVORITES: '@localsend/favorites',
     DEVICE_INFO: '@localsend/device_info',
+    DEVICE_ID: '@localsend/device_id',
+    ONBOARDING_COMPLETE: '@localsend/onboarding_complete',
 } as const;
 
 export class LocalStorage {
@@ -31,6 +33,23 @@ export class LocalStorage {
             await AsyncStorage.removeItem(key);
         } catch (error) {
             console.error('Error removing from storage:', error);
+        }
+    }
+
+    static async getItem(key: string): Promise<string | null> {
+        try {
+            return await AsyncStorage.getItem(key);
+        } catch (error) {
+            console.error('Error reading item from storage:', error);
+            return null;
+        }
+    }
+
+    static async setItem(key: string, value: string): Promise<void> {
+        try {
+            await AsyncStorage.setItem(key, value);
+        } catch (error) {
+            console.error('Error writing item to storage:', error);
         }
     }
 

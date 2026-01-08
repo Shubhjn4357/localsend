@@ -31,6 +31,9 @@ interface SettingsStore {
     serverRunning: boolean;
     serverPort: number;
     bluetoothEnabled: boolean;
+    useNearbyConnections: boolean;  // Use Nearby API for Android-to-Android
+    useNearDrop: boolean;            // Use NearDrop for macOS/iOS
+    optimizeTransfers: boolean;      // Enable compression & streaming
 
     // Legacy (keeping for compatibility)
     deviceAlias: string;
@@ -57,6 +60,9 @@ interface SettingsStore {
     setServerRunning: (running: boolean) => void;
     setServerPort: (port: number) => Promise<void>;
     setBluetoothEnabled: (enabled: boolean) => Promise<void>;
+    setUseNearbyConnections: (enabled: boolean) => Promise<void>;
+    setUseNearDrop: (enabled: boolean) => Promise<void>;
+    setOptimizeTransfers: (enabled: boolean) => Promise<void>;
 
     // Legacy actions
     setDeviceAlias: (alias: string) => void;
@@ -99,6 +105,9 @@ const defaultSettings = {
     serverRunning: false,
     serverPort: 53317,
     bluetoothEnabled: true, // Bluetooth enabled by default
+    useNearbyConnections: true, // Nearby Connections enabled by default
+    useNearDrop: true, // NearDrop enabled by default
+    optimizeTransfers: true, // Optimization enabled by default
 
     // Legacy
     deviceAlias: generateDefaultAlias(),
@@ -195,6 +204,21 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
     },
 
+    setUseNearbyConnections: async (enabled) => {
+        set({ useNearbyConnections: enabled });
+        await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
+    },
+
+    setUseNearDrop: async (enabled) => {
+        set({ useNearDrop: enabled });
+        await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
+    },
+
+    setOptimizeTransfers: async (enabled) => {
+        set({ optimizeTransfers: enabled });
+        await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
+    },
+
     setDeviceAlias: (alias) => set({ deviceAlias: alias, deviceName: alias }),
     setAutoAccept: (autoAccept) => set({ autoAccept }),
     setSaveDirectory: (directory) => set({ saveDirectory: directory }),
@@ -222,3 +246,30 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
     },
 }));
+
+/**
+ * Generate a random 6-digit numeric device ID
+ * Format: #123456 (easier for manual entry)
+ */
+const generateNumericDeviceId = (): string => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+/**
+ * Get or create device fingerprint (6-digit numeric ID)
+ */
+export const getDeviceFingerprint = async (): Promise<string> => {
+    try {
+        const stored = await LocalStorage.get<string>(STORAGE_KEYS.DEVICE_ID);
+        if (stored && typeof stored === 'string') {
+            return stored as string;
+        }
+
+        const newId = generateNumericDeviceId();
+        await LocalStorage.set(STORAGE_KEYS.DEVICE_ID, newId);
+        return newId;
+    } catch (error) {
+        console.error('Error getting device ID:', error);
+        return generateNumericDeviceId();
+    }
+};

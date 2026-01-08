@@ -4,13 +4,20 @@ A modern, open-source local file sharing application built with Expo and React N
 
 ## ✨ Features
 
-- 🔍 **Automatic Device Discovery** - Find nearby devices instantly using UDP multicast
-- 🚀 **Fast Transfers** - Direct peer-to-peer transfers over your local network
-- 🔒 **Secure** - HTTPS encryption for all file transfers
-- 🎨 **Beautiful UI** - Material Design 3 with liquid glass morphism
+- 🔍 **Automatic Device Discovery** - Find nearby devices instantly with auto-discovery
+- 🎯 **Numeric Device IDs** - Easy 6-digit numeric IDs (#123456) for manual connections
+- 🖼️ **File Previews** - See actual image thumbnails and video previews
+- 👆 **Tap to Preview** - Full-screen file preview with pinch-to-zoom
+- 🚀 **Fast Transfers** - Direct peer-to-peer transfers with optimization
+- 🌊 **Protocol Auto-Select** - Bluetooth, Wi-Fi Direct, NearDrop, or HTTP
+- 📝 **What's New** - Integrated changelog in settings
+- 👋 **Onboarding** - Friendly first-time user guide
+- 🔒 **Secure** - All transfers encrypted and direct
+- 🎨 **Beautiful UI** - Material Design 3 with glassmorphism
 - 📱 **Cross-Platform** - iOS, Android, and Web support
-- 🌓 **Theme Support** - Automatic light/dark mode with system color extraction
+- 🌓 **Theme Support** - Automatic light/dark mode with custom color schemes
 - 📦 **Multi-File Support** - Send multiple files at once
+- ⚡ **Performance Optimized** - React.memo, useCallback, useMemo throughout
 
 ## 🚀 Getting Started
 

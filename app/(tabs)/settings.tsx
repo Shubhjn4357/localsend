@@ -10,6 +10,8 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { DeviceNameDialog } from '@/components/DeviceNameDialog';
 import { PrivacyPolicyScreen } from '@/components/PrivacyPolicyScreen';
 import { ThemedAlert } from '@/components/ThemedAlert';
+import { CurlySpinner } from '@/components/CurlySpinner';
+import * as Network from 'expo-network';
 import type { AppTheme } from '@/theme/colors';
 import type { ThemeMode, ColorScheme, Language, DestinationFolder } from '@/types/settings';
 import { LANGUAGES, COLOR_SCHEMES, DESTINATION_FOLDERS } from '@/types/settings';
@@ -20,6 +22,8 @@ export default function SettingsScreen() {
     const theme = useTheme<AppTheme>();
     const insets = useSafeAreaInsets();
     const [showChangelog, setShowChangelog] = useState(false);
+    const [ipAddress, setIpAddress] = useState<string>('...');
+    const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
     const [expandedLanguages, setExpandedLanguages] = useState(false);
     const [expandedColorSchemes, setExpandedColorSchemes] = useState(false);
     const [expandedDestination, setExpandedDestination] = useState(false);
@@ -54,12 +58,21 @@ export default function SettingsScreen() {
     const setSaveToGallery = useSettingsStore((state) => state.setSaveToGallery);
     const setAutoFinish = useSettingsStore((state) => state.setAutoFinish);
     const setSaveHistory = useSettingsStore((state) => state.setSaveHistory);
+    const setPin = useSettingsStore((state) => state.setPin);
 
     // Network Settings
     const deviceName = useSettingsStore((state) => state.deviceName);
     const serverRunning = useSettingsStore((state) => state.serverRunning);
+    const bluetoothEnabled = useSettingsStore((state) => state.bluetoothEnabled);
+    const useNearbyConnections = useSettingsStore((state) => state.useNearbyConnections);
+    const useNearDrop = useSettingsStore((state) => state.useNearDrop);
+    const optimizeTransfers = useSettingsStore((state) => state.optimizeTransfers);
     const setDeviceName = useSettingsStore((state) => state.setDeviceName);
     const setServerRunning = useSettingsStore((state) => state.setServerRunning);
+    const setBluetoothEnabled = useSettingsStore((state) => state.setBluetoothEnabled);
+    const setUseNearbyConnections = useSettingsStore((state) => state.setUseNearbyConnections);
+    const setUseNearDrop = useSettingsStore((state) => state.setUseNearDrop);
+    const setOptimizeTransfers = useSettingsStore((state) => state.setOptimizeTransfers);
 
     const currentYear = new Date().getFullYear();
 
@@ -176,6 +189,51 @@ export default function SettingsScreen() {
                         theme={theme}
                     />
 
+                    {requirePin && (
+                        <>
+                            <SettingItem
+                                icon="key-variant"
+                                label="Custom PIN"
+                                value={pin || 'Not Set'}
+                                theme={theme}
+                                onPress={() => {
+                                    showAlert(
+                                        'Set PIN',
+                                        'Enter a 4-digit PIN',
+                                        [
+                                            {
+                                                text: 'Cancel',
+                                                style: 'cancel',
+                                            },
+                                            {
+                                                text: 'Set',
+                                                onPress: (inputValue: string) => {
+                                                    if (inputValue && /^\d{4}$/.test(inputValue)) {
+                                                        setPin(inputValue);
+                                                    } else {
+                                                        showAlert('Invalid PIN', 'PIN must be 4 digits');
+                                                    }
+                                                },
+                                            },
+                                        ]
+                                    );
+                                }}
+                            />
+
+                            <SettingItem
+                                icon="shuffle-variant"
+                                label="Generate Random PIN"
+                                value="Tap to generate"
+                                theme={theme}
+                                onPress={() => {
+                                    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+                                    setPin(randomPin);
+                                    showAlert('PIN Generated', `Your new PIN is: ${randomPin}`);
+                                }}
+                            />
+                        </>
+                    )}
+
                     <SettingItem
                         icon="folder"
                         label="Destination"
@@ -276,6 +334,44 @@ export default function SettingsScreen() {
                         onValueChange={setServerRunning}
                         theme={theme}
                     />
+
+                    <ToggleSettingItem
+                        icon="bluetooth"
+                        label="Bluetooth Discovery"
+                        subtitle="Use Bluetooth for finding nearby devices"
+                        value={bluetoothEnabled}
+                        onValueChange={setBluetoothEnabled}
+                        theme={theme}
+                    />
+
+                    <ToggleSettingItem
+                        icon="wifi"
+                        label="Wi-Fi Direct (Android)"
+                        subtitle="Faster transfers between Android devices"
+                        value={useNearbyConnections}
+                        onValueChange={setUseNearbyConnections}
+                        theme={theme}
+                        disabled={Platform.OS !== 'android'}
+                    />
+
+                    <ToggleSettingItem
+                        icon="apple"
+                        label="NearDrop (macOS/iOS)"
+                        subtitle="Compatible with Android Quick Share"
+                        value={useNearDrop}
+                        onValueChange={setUseNearDrop}
+                        theme={theme}
+                        disabled={Platform.OS !== 'ios' && Platform.OS !== 'macos'}
+                    />
+
+                    <ToggleSettingItem
+                        icon="flash"
+                        label="Optimize Transfers"
+                        subtitle="Compress files & stream large transfers"
+                        value={optimizeTransfers}
+                        onValueChange={setOptimizeTransfers}
+                        theme={theme}
+                    />
                 </Animated.View>
 
                 <Divider style={styles.sectionDivider} />
@@ -350,6 +446,48 @@ export default function SettingsScreen() {
                 </Animated.View>
             </ScrollView>
 
+            {/* What's New Section */}
+            <SectionHeader icon="star-circle" title="What's New" theme={theme} />
+            <View style={styles.section}>
+                {CHANGELOG.map((version, index) => (
+                    <Pressable
+                        key={version.version}
+                        style={[styles.settingItem, { backgroundColor: theme.colors.surfaceVariant }]}
+                        onPress={() => setExpandedVersion(expandedVersion === version.version ? null : version.version)}
+                    >
+                        <View style={styles.settingItemContent}>
+                            <MaterialCommunityIcons name="update" size={24} color={theme.colors.primary} />
+                            <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <Text style={styles.settingLabel}>v{version.version}</Text>
+                                    {index === 0 && (
+                                        <View style={[styles.badge, { backgroundColor: theme.colors.primary }]}>
+                                            <Text style={[styles.badgeText, { color: theme.colors.onPrimary }]}>New</Text>
+                                        </View>
+                                    )}
+                                </View>
+                                <Text style={styles.settingSubtitle}>{version.date}</Text>
+                            </View>
+                            <MaterialCommunityIcons
+                                name={expandedVersion === version.version ? 'chevron-up' : 'chevron-down'}
+                                size={24}
+                                color={theme.colors.onSurfaceVariant}
+                            />
+                        </View>
+                        {expandedVersion === version.version && (
+                            <View style={styles.changelogContent}>
+                                {version.changes.map((change, idx) => (
+                                    <View key={idx} style={styles.changeItem}>
+                                        <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primary} />
+                                        <Text style={[styles.changeText, { color: theme.colors.onSurface }]}>{change}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+                    </Pressable>
+                ))}
+            </View>
+
             {/* Device Name Dialog */}
             <DeviceNameDialog
                 visible={showDeviceNameDialog}
@@ -420,14 +558,15 @@ const ToggleSettingItem: React.FC<{
     value: boolean;
     onValueChange: (value: boolean) => void;
     theme: AppTheme;
-}> = ({ icon, label, subtitle, value, onValueChange, theme }) => (
+    disabled?: boolean;
+}> = ({ icon, label, subtitle, value, onValueChange, theme, disabled }) => (
     <View style={styles.settingItem}>
         <MaterialCommunityIcons name={icon as any} size={24} color={theme.colors.onSurfaceVariant} />
         <View style={styles.settingTextContainer}>
             <Text style={[styles.settingLabel, { color: theme.colors.onSurface }]}>{label}</Text>
             {subtitle && <Text style={[styles.settingSubtitle, { color: theme.colors.outline }]}>{subtitle}</Text>}
         </View>
-        <Switch value={value} onValueChange={onValueChange} color={theme.colors.primary} />
+        <Switch value={value} onValueChange={onValueChange} color={theme.colors.primary} disabled={disabled} />
     </View>
 );
 
@@ -501,15 +640,22 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
+    section: {
+        paddingHorizontal: 24,
+        marginBottom: 16,
+    },
     sectionDivider: {
         marginVertical: 16,
     },
     settingItem: {
+        borderRadius: 12,
+        marginBottom: 8,
+        padding: 16,
+    },
+    settingItemContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 24,
-        paddingVertical: 16,
-        gap: 16,
+        gap: 12,
     },
     settingTextContainer: {
         flex: 1,
@@ -537,6 +683,35 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 4,
     },
+    radioText: {
+        fontSize: 14,
+        marginLeft: 8,
+    },
+    badge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+    },
+    badgeText: {
+        fontSize: 11,
+        fontWeight: '600',
+    },
+    changelogContent: {
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.1)',
+    },
+    changeItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+        marginBottom: 8,
+    },
+    changeText: {
+        fontSize: 14,
+        flex: 1,
+    },
     radioLabel: {
         fontSize: 14,
         marginLeft: 8,
@@ -560,17 +735,6 @@ const styles = StyleSheet.create({
     },
     versionDate: {
         fontSize: 12,
-    },
-    changeItem: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        paddingVertical: 2,
-        paddingLeft: 8,
-    },
-    changeText: {
-        fontSize: 13,
-        flex: 1,
-        lineHeight: 18,
     },
     changelogDivider: {
         marginTop: 12,

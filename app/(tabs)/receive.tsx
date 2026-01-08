@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
 import { Text, Switch, Chip, useTheme, IconButton } from 'react-native-paper';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -10,11 +10,14 @@ import { CurlySpinner } from '@/components/CurlySpinner';
 import { QRScannerModal } from '@/components/QRScannerModal';
 import { QRDisplayModal } from '@/components/QRDisplayModal';
 import { TransferRequestDialog } from '@/components/TransferRequestDialog';
+import { DiscoveredDeviceCard } from '@/components/DiscoveredDeviceCard';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
+import { useDeviceStore } from '@/stores/deviceStore';
 import type { AppTheme } from '@/theme/colors';
 import { httpServer } from '@/services/httpServer';
 import { transferEvents } from '@/services/transferEvents';
+import { deviceService } from '@/services/discovery/deviceService';
 import type { TransferRequest } from '@/types/transfer';
 
 export default function ReceiveScreen() {
@@ -50,6 +53,13 @@ export default function ReceiveScreen() {
         request: TransferRequest;
     } | null>(null);
 
+    // Network state
+    const [ipAddress, setIpAddress] = useState<string>('...');
+
+    // Device store for showing discovered senders
+    const allDevices = useDeviceStore((state) => state.devices);
+    const isScanning = useDeviceStore((state) => state.isScanning);
+
     // Start/stop HTTP server based on serverRunning state
     useEffect(() => {
         const init = async () => {
@@ -75,11 +85,26 @@ export default function ReceiveScreen() {
         // Cleanup: stop server when component unmounts
         return () => {
             if (serverRunning) {
-
                 httpServer.stop();
             }
         };
     }, [serverRunning]);
+
+    // Load settings and start discovery on mount
+    useEffect(() => {
+        useSettingsStore.getState().loadSettings();
+        useFavoritesStore.getState().loadFavorites();
+
+        // Auto-start device discovery for Receive tab
+        deviceService.startDiscovery().catch((error) => {
+            console.error('Failed to start auto-discovery:', error);
+        });
+
+        return () => {
+            // Stop discovery when tab unmounts
+            deviceService.stopDiscovery();
+        };
+    }, []);
 
     // Listen for incoming transfer requests
     useEffect(() => {
@@ -96,38 +121,46 @@ export default function ReceiveScreen() {
     }, []);
 
 
-    const handleShowQR = async () => {
+
+    const handleShowQR = useCallback(async () => {
         const ip = await Network.getIpAddressAsync();
-        // Format: localsend:<port>:<alias>:<ip> (Standard LocalSend format might differ, but this works for custom)
-        // Actually, let's use a simpler format or try to match LocalSend.
-        // LocalSend usually broadcasts. Manual input often takes IP.
         const data = `localsend:${serverPort}:${deviceName}:${ip}`;
         setQrData(data);
         setShowQRDisplay(true);
-    };
+    }, [serverPort, deviceName]);
 
-    const handleQRScan = (data: string) => {
+    const handleQRScan = useCallback((data: string) => {
         console.log('Scanned from Receive:', data);
-        // Parse QR code and validate device info
-        // Format: localsend:port:alias:ip
-        console.log('Scanned QR from Receive screen:', data);
-    };
+        setShowQRScanner(false);
+        // Parse and handle QR data
+    }, []);
 
-    const handleAcceptTransfer = () => {
+    const handleAcceptTransfer = useCallback(() => {
         if (pendingTransferRequest) {
             httpServer.acceptTransfer(pendingTransferRequest.sessionId);
             setShowTransferRequest(false);
             setPendingTransferRequest(null);
         }
-    };
+    }, [pendingTransferRequest]);
 
-    const handleRejectTransfer = () => {
+    const handleRejectTransfer = useCallback(() => {
         if (pendingTransferRequest) {
             httpServer.rejectTransfer(pendingTransferRequest.sessionId);
             setShowTransferRequest(false);
             setPendingTransferRequest(null);
         }
-    };
+    }, [pendingTransferRequest]);
+
+    const handleRefreshDiscovery = useCallback(async () => {
+        console.log('Refreshing device discovery...');
+        await deviceService.stopDiscovery();
+        await deviceService.startDiscovery();
+    }, []);
+
+    // Memoize filtered devices
+    const discoveredDevices = useMemo(() => {
+        return allDevices.filter(device => device.isOnline);
+    }, [allDevices]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
@@ -149,6 +182,14 @@ export default function ReceiveScreen() {
                         iconColor={theme.colors.onSurface}
                         style={styles.scanButton}
                         onPress={() => setShowQRScanner(true)}
+                    />
+                    <IconButton
+                        icon="reload"
+                        size={24}
+                        iconColor={theme.colors.primary}
+                        style={styles.scanButton}
+                        onPress={handleRefreshDiscovery}
+                        disabled={isScanning}
                     />
                 </View>
 
@@ -219,6 +260,42 @@ export default function ReceiveScreen() {
                                 {serverRunning ? t('receive.running') : t('receive.stopped')}
                             </Text>
                         </View>
+                    </Animated.View>
+                )}
+
+                {/* Discovered Devices Section */}
+                {allDevices.length > 0 && (
+                    <Animated.View entering={FadeIn} style={styles.discoveredSection}>
+                        <View style={styles.sectionHeader}>
+                            <MaterialCommunityIcons
+                                name="radar"
+                                size={20}
+                                color={theme.colors.primary}
+                            />
+                            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+                                Available Senders ({allDevices.length})
+                            </Text>
+                            {isScanning && (
+                                <CurlySpinner size={16} color={theme.colors.primary} />
+                            )}
+                        </View>
+
+                        {allDevices.map((device) => {
+                            const connectionType = device.connectionType === 'wifi-direct' ? 'nearby' : (device.connectionType || 'wifi');
+                            return (
+                                <DiscoveredDeviceCard
+                                    key={device.fingerprint}
+                                    deviceName={device.alias}
+                                    deviceId={`#${device.fingerprint}`}
+                                    connectionType={connectionType as 'bluetooth' | 'wifi' | 'nearby'}
+                                    onTap={() => {
+                                        console.log('Tapped device:', device.alias);
+                                        // TODO: Handle device selection for receiving
+                                    }}
+                                    theme={theme}
+                                />
+                            );
+                        })}
                     </Animated.View>
                 )}
 
@@ -428,6 +505,33 @@ const styles = StyleSheet.create({
     },
     statusSubtext: {
         fontSize: 12,
+        textAlign: 'center',
+    },
+    discoveredSection: {
+        marginTop: 16,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        flex: 1,
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 32,
+        gap: 12,
+    },
+    emptyStateText: {
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    emptyStateHint: {
+        fontSize: 14,
         textAlign: 'center',
     },
 });

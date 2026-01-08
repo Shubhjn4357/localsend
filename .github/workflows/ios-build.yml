@@ -1,0 +1,75 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build iOS IPA
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+          bundler-cache: true
+      
+      - name: Install CocoaPods
+        run: |
+          sudo gem install cocoapods
+          pod --version
+      
+      - name: Prebuild iOS
+        run: npx expo prebuild --platform ios --clean
+      
+      - name: Install iOS dependencies
+        working-directory: ios
+        run: pod install
+      
+      - name: Build iOS (Archive)
+        run: |
+          xcodebuild \
+            -workspace ios/localsend.xcworkspace \
+            -scheme localsend \
+            -configuration Release \
+            -archivePath build/localsend.xcarchive \
+            archive
+      
+      - name: Export IPA
+        run: |
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/localsend.xcarchive \
+            -exportPath build \
+            -exportOptionsPlist ios/exportOptions.plist
+      
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: build/*.ipa
+      
+      - name: Upload to Release (if tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/*.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

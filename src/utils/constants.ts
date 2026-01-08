@@ -1,4 +1,4 @@
-export const LOCALSEND_VERSION = '3.1.0';
+export const LOCALSEND_VERSION = '4.6.1';
 export const PROTOCOL_VERSION = 'v2';
 export const APP_DEVELOPER = 'Shubh Jain';
 
@@ -45,6 +45,21 @@ export const FILE_TYPE_OPTIONS: Array<{
 // Changelog
 export const CHANGELOG = [
     {
+        version: '4.6.1',
+        date: '2026-01-08',
+        changes: [
+            'First-time user onboarding screen',
+            'File preview with actual image thumbnails',
+            'Video thumbnail support',
+            'Tap to preview files in full screen',
+            'Changelog display in settings',
+            'Numeric device IDs (#123456)',
+            'Auto-discovery with device cards',
+            'Performance optimizations (React.memo, useCallback)',
+            'CI/CD pipelines for automated builds',
+        ],
+    },
+    {
         version: '3.1.0',
         date: '2026-01-02',
         changes: [
@@ -86,3 +101,39 @@ export const CHANGELOG = [
         ],
     },
 ];
+
+// File type detection utilities
+export const getFileExtension = (filename: string): string => {
+    return filename.split('.').pop()?.toLowerCase() || '';
+};
+
+export const isImage = (filename: string): boolean => {
+    const ext = getFileExtension(filename);
+    return FILE_CATEGORIES.IMAGE.includes(ext as any);
+};
+
+export const isVideo = (filename: string): boolean => {
+    const ext = getFileExtension(filename);
+    return FILE_CATEGORIES.VIDEO.includes(ext as any);
+};
+
+export const isAudio = (filename: string): boolean => {
+    const ext = getFileExtension(filename);
+    return FILE_CATEGORIES.AUDIO.includes(ext as any)
+
+        ;
+};
+
+export const isDocument = (filename: string): boolean => {
+    const ext = getFileExtension(filename);
+    return FILE_CATEGORIES.DOCUMENT.includes(ext as any);
+};
+
+export const getFileTypeIcon = (filename: string): string => {
+    if (isImage(filename)) return 'file-image';
+    if (isVideo(filename)) return 'file-video';
+    if (isAudio(filename)) return 'file-music';
+    if (isDocument(filename)) return 'file-document';
+    if (getFileExtension(filename) === 'apk') return 'android';
+    return 'file';
+};
