@@ -175,7 +175,8 @@ export default function SendScreen() {
             setShowProgressOverlay(true);
 
             // Use TransferManager for smart protocol selection
-            await transferManager.sendFiles(device, selectedFiles, pin);
+            // Send files
+            await transferManager.sendFiles(device, selectedFiles);
 
             showAlert(t('common.success'), t('send.transferComplete'));
         } catch (error) {
