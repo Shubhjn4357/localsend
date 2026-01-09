@@ -28,10 +28,11 @@ export interface DeviceAnnouncement {
     alias: string;
     version: string;
     deviceModel?: string;
-    deviceType: Device['deviceType'];
+    deviceType: 'mobile' | 'desktop' | 'web' | 'headless' | 'server';
     fingerprint: string;
     port: number;
-    protocol: Device['protocol'];
+    protocol: 'http' | 'https' | 'bluetooth';
     download?: boolean;
     announce: boolean;
+    supportsNearby?: boolean;  // Advertise Nearby Connections support
 }

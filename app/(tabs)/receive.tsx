@@ -11,6 +11,7 @@ import { QRScannerModal } from '@/components/QRScannerModal';
 import { QRDisplayModal } from '@/components/QRDisplayModal';
 import { TransferRequestDialog } from '@/components/TransferRequestDialog';
 import { DiscoveredDeviceCard } from '@/components/DiscoveredDeviceCard';
+import { ManualSendingDialog } from '@/components/ManualSendingDialog';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useDeviceStore } from '@/stores/deviceStore';
@@ -18,6 +19,7 @@ import type { AppTheme } from '@/theme/colors';
 import { httpServer } from '@/services/httpServer';
 import { transferEvents } from '@/services/transferEvents';
 import { deviceService } from '@/services/discovery/deviceService';
+import { httpDiscoveryService } from '@/services/discovery/httpDiscoveryService';
 import type { TransferRequest } from '@/types/transfer';
 
 export default function ReceiveScreen() {
@@ -39,12 +41,16 @@ export default function ReceiveScreen() {
     useEffect(() => {
         useSettingsStore.getState().loadSettings();
         useFavoritesStore.getState().loadFavorites();
+
+        // Load IP address immediately
+        Network.getIpAddressAsync().then(ip => setIpAddress(ip)).catch(() => setIpAddress('N/A'));
     }, []);
 
     // QR and Transfer request state
     const [showQRScanner, setShowQRScanner] = useState(false);
     const [showQRDisplay, setShowQRDisplay] = useState(false);
     const [qrData, setQrData] = useState('');
+    const [showManualConnection, setShowManualConnection] = useState(false);
 
     // Transfer request state
     const [showTransferRequest, setShowTransferRequest] = useState(false);
@@ -157,6 +163,27 @@ export default function ReceiveScreen() {
         await deviceService.startDiscovery();
     }, []);
 
+    const handleManualConnect = useCallback(async (type: 'hashtag' | 'ip', value: string) => {
+        if (type === 'ip') {
+            console.log(`Attempting manual connection to ${value}...`);
+            try {
+                const device = await httpDiscoveryService.checkDevice(value);
+                if (device) {
+                    useDeviceStore.getState().addDevice(device);
+                    console.log(`Successfully connected to device at ${value}`);
+                    setShowManualConnection(false);
+                } else {
+                    console.error(`Could not find device at ${value}`);
+                }
+            } catch (e) {
+                console.error('Manual connection failed:', e);
+            }
+        } else {
+            console.log('Hashtag connection requires multicast discovery');
+            // Hashtag connections use multicast, which is handled by auto-discovery
+        }
+    }, []);
+
     // Memoize filtered devices
     const discoveredDevices = useMemo(() => {
         return allDevices.filter(device => device.isOnline);
@@ -241,6 +268,15 @@ export default function ReceiveScreen() {
                         <View style={styles.infoRow}>
                             <MaterialCommunityIcons name="ip-network" size={20} color={theme.colors.onSurfaceVariant} />
                             <Text style={[styles.infoLabel, { color: theme.colors.onSurfaceVariant }]}>
+                                {t('receive.ipAddress')}:
+                            </Text>
+                            <Text style={[styles.infoValue, { color: theme.colors.onSurface }]}>
+                                {ipAddress}
+                            </Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                            <MaterialCommunityIcons name="ip-network" size={20} color={theme.colors.onSurfaceVariant} />
+                            <Text style={[styles.infoLabel, { color: theme.colors.onSurfaceVariant }]}>
                                 {t('receive.port')}:
                             </Text>
                             <Text style={[styles.infoValue, { color: theme.colors.onSurface }]}>
@@ -260,6 +296,17 @@ export default function ReceiveScreen() {
                                 {serverRunning ? t('receive.running') : t('receive.stopped')}
                             </Text>
                         </View>
+
+                        {/* Manual Connection Button */}
+                        <Pressable
+                            style={[styles.manualConnectButton, { backgroundColor: theme.colors.primary }]}
+                            onPress={() => setShowManualConnection(true)}
+                        >
+                            <MaterialCommunityIcons name="ip-network-outline" size={20} color={theme.colors.onPrimary} />
+                            <Text style={[styles.manualConnectText, { color: theme.colors.onPrimary }]}>
+                                Manual Connection
+                            </Text>
+                        </Pressable>
                     </Animated.View>
                 )}
 
@@ -387,6 +434,13 @@ export default function ReceiveScreen() {
                 data={qrData}
                 title="Your Device"
                 instruction="Ask the sender to scan this QR code to connect to your device."
+            />
+
+            {/* Manual Connection Dialog */}
+            <ManualSendingDialog
+                visible={showManualConnection}
+                onClose={() => setShowManualConnection(false)}
+                onConnect={handleManualConnect}
             />
 
             {/* Transfer Request Dialog */}
@@ -533,5 +587,19 @@ const styles = StyleSheet.create({
     emptyStateHint: {
         fontSize: 14,
         textAlign: 'center',
+    },
+    manualConnectButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        marginTop: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+    },
+    manualConnectText: {
+        fontSize: 14,
+        fontWeight: '600',
     },
 });

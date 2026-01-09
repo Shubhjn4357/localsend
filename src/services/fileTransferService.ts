@@ -80,6 +80,8 @@ class FileTransferService {
                 url += `?pin=${pin}`;
             }
 
+            console.log(`Preparing upload to ${device.alias} at ${url}`);
+
             // Send request
             const response = await fetch(url, {
                 method: 'POST',
@@ -90,7 +92,9 @@ class FileTransferService {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                const errorText = await response.text();
+                console.error(`Prepare upload failed: HTTP ${response.status}: ${errorText}`);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
             const result: TransferResponse = await response.json();
@@ -121,6 +125,13 @@ class FileTransferService {
             return result.sessionId;
         } catch (error) {
             console.error('Failed to prepare upload:', error);
+            if (error instanceof Error && error.message.includes('Network request failed')) {
+                console.error(`Cannot connect to ${device.alias} (${device.ipAddress}:${device.port})`);
+                console.error('Make sure the receiver:');
+                console.error('  1. Is on the Receive tab');
+                console.error('  2. Has the server running (toggle on)');
+                console.error('  3. Is on the same Wi-Fi network');
+            }
             return null;
         }
     }

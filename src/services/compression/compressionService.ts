@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 /**
@@ -62,9 +62,11 @@ export class CompressionService {
      */
     async compressFile(fileUri: string, fileName: string): Promise<CompressionResult> {
         try {
-            const fileInfo = await FileSystem.getInfoAsync(fileUri);
+            // Use new File API (expo-file-system SDK 54+)
+            const fileObj = new File(fileUri);
+            const fileInfo = await fileObj.info();
             
-            if (!fileInfo.exists || !('size' in fileInfo)) {
+            if (!fileInfo.exists || !fileInfo.size) {
                 throw new Error('File not found');
             }
 

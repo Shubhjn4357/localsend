@@ -163,6 +163,7 @@ class UDPService {
             port: settings.serverPort,
             protocol: 'https',
             announce: true,
+            supportsNearby: Platform.OS === 'android', // Android supports Nearby Connections
         };
 
         const message = JSON.stringify(announcement);
@@ -221,6 +222,7 @@ class UDPService {
                 version: announcement.version,
                 lastSeen: Date.now(),
                 isOnline: true,
+                supportsNearby: announcement.supportsNearby || false, // Use Nearby if advertised
             };
 
             // Send HTTP POST /register response (LocalSend v2 protocol)
@@ -255,19 +257,27 @@ class UDPService {
                 download: false,
             };
 
-            // Send HTTP POST request
+            // Send HTTP POST request with manual timeout (AbortSignal.timeout not available in RN)
             const url = `${device.protocol}://${device.ipAddress}:${device.port}/api/localsend/v2/register`;
 
-            await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(response),
-                signal: AbortSignal.timeout(2000), // 2 second timeout
-            });
+            // Create AbortController for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
 
-            console.log(`Sent register response to ${device.alias}`);
+            try {
+                await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(response),
+                    signal: controller.signal,
+                });
+
+                console.log(`Sent register response to ${device.alias}`);
+            } finally {
+                clearTimeout(timeoutId);
+            }
         } catch (error) {
             // Silently fail - device might not have HTTP server running yet
             console.log(`Could not send register response: ${error}`);

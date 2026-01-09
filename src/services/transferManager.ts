@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { nearbyConnectionsService } from './nearbyShare/nearbyConnectionsService';
 import { nearDropService } from './nearbyShare/nearDropService';
 import { fileTransferService } from './fileTransferService';
@@ -17,20 +17,33 @@ export class TransferManager {
     /**
      * Send files using the optimal protocol with optimization
      */
-    async sendFiles(device: Device, files: PickedFile[], pin?: string): Promise<void> {
-        // Step 1: Optimize files (compression if beneficial)
-        const optimizedFiles = await this.optimizeFiles(files);
+    async sendFiles(device: Device, files: PickedFile[]): Promise<void> {
+        try {
+            // Optimize files if enabled
+            const optimizedFiles = await this.optimizeFiles(files);
 
-        // Step 2: Determine best protocol
-        if (this.shouldUseNearbyConnections(device)) {
-            console.log('🚀 Using Nearby Connections (Wi-Fi Direct)');
-            await this.sendViaNearby(device, optimizedFiles);
-        } else if (this.shouldUseNearDrop(device)) {
-            console.log('🍎 Using NearDrop (macOS/iOS)');
-            await this.sendViaNearDrop(device, optimizedFiles);
-        } else {
-            console.log('📡 Using LocalSend (HTTP)');
-            await this.sendViaLocalSend(device, optimizedFiles, pin);
+            // Choose transfer method based on device capabilities and platform
+            if (this.shouldUseNearbyConnections(device)) {
+                console.log('📡 Using Nearby Connections (WiFi-Direct)');
+                await this.sendViaNearby(device, optimizedFiles);
+            } else if (this.shouldUseNearDrop(device)) {
+                console.log('📡 Using NearDrop (AirDrop-like)');
+                await this.sendViaNearDrop(device, optimizedFiles);
+            } else if (Platform.OS === 'web') {
+                // HTTP only allowed for web platform
+                console.log('📡 Using LocalSend (HTTP) - Web Platform');
+                await this.sendViaLocalSend(device, optimizedFiles);
+            } else {
+                // Mobile devices must use Nearby/Bluetooth - no HTTP fallback
+                throw new Error(
+                    `Cannot transfer to ${device.alias}: ` +
+                    `Device doesn't support Nearby Connections or Bluetooth. ` +
+                    `Both devices must have WiFi-Direct/Bluetooth enabled.`
+                );
+            }
+        } catch (error) {
+            console.error('Transfer error:', error);
+            throw error;
         }
     }
 
@@ -40,36 +53,30 @@ export class TransferManager {
     private shouldUseNearbyConnections(device: Device): boolean {
         // Check 1: Platform must be Android
         if (Platform.OS !== 'android') {
+            console.log('📱 Not using Nearby: sender not Android');
             return false;
         }
 
-        // Check 2: Target device must be Android
-        if (device.deviceModel?.toLowerCase().includes('android') === false &&
-            device.deviceType !== 'mobile') {
-            return false;
-        }
-
-        // Check 3: Device must support Nearby
+        // Check 2: Device must support Nearby
         if (!device.supportsNearby) {
+            console.log('📱 Not using Nearby: device doesn\'t support it');
             return false;
         }
 
-        // Check 4: Must have Nearby endpoint ID
-        if (!device.nearbyEndpointId) {
-            return false;
-        }
-
-        // Check 5: Nearby Connections must be available
+        // Check 3: Nearby Connections must be available
         if (!nearbyConnectionsService.isAvailable()) {
+            console.log('📱 Not using Nearby: service not available');
             return false;
         }
 
-        // Check 6: User preference (settings)
+        // Check 4: User preference (settings)
         const settings = useSettingsStore.getState();
         if (settings.useNearbyConnections === false) {
+            console.log('📱 Not using Nearby: disabled in settings');
             return false;
         }
 
+        console.log('🚀 Using Nearby Connections (WiFi-Direct)!');
         return true;
     }
 
@@ -111,36 +118,38 @@ export class TransferManager {
      */
     private async sendViaNearby(device: Device, files: PickedFile[]): Promise<void> {
         try {
+            console.log(`📡 Initiating Nearby Connections to ${device.alias}...`);
+
+            // Use real Nearby endpoint if we have it, otherwise try IP as fallback
+            const endpointId = device.nearbyEndpointId || device.ipAddress;
+
             if (!device.nearbyEndpointId) {
-                throw new Error('No Nearby endpoint ID');
+                console.log(`⚠️ No Nearby endpoint ID found, using IP address: ${endpointId}`);
+                console.log('This may fail - ensure Nearby discovery is running on both devices');
+            } else {
+                console.log(`✅ Using Nearby endpoint: ${endpointId}`);
             }
 
-            // Request connection
+            console.log(`🔌 Requesting connection to ${device.alias}...`);
+
             const deviceName = useSettingsStore.getState().deviceName;
             await nearbyConnectionsService.requestConnection(
-                device.nearbyEndpointId,
+                endpointId,
                 deviceName
             );
 
-            // Wait for connection to be established
-            // (Connection acceptance is handled via events in the UI)
+            console.log(`📤 Sending ${files.length} files via Nearby Connections...`);
 
-            // Send files one by one
+            // Send each file
             for (const file of files) {
-                await nearbyConnectionsService.sendFile(
-                    device.nearbyEndpointId,
-                    file.uri,
-                    file.name
-                );
+                console.log(`  Sending: ${file.name}`);
+                await nearbyConnectionsService.sendFile(endpointId, file.uri, file.name);
             }
 
-            console.log('✅ Nearby transfer complete');
+            console.log(`✅ Nearby transfer complete!`);
         } catch (error) {
-            console.error('Nearby transfer failed:', error);
-
-            // Fallback to LocalSend
-            console.log('⚠️ Falling back to LocalSend');
-            await fileTransferService.sendFiles(device, files);
+            console.error('❌ Nearby transfer failed:', error);
+            throw error;
         }
     }
 
@@ -201,10 +210,11 @@ export class TransferManager {
 
         return Promise.all(files.map(async (file) => {
             try {
-                // Get file info
-                const fileInfo = await FileSystem.getInfoAsync(file.uri);
+                // Get file info using new File API (expo-file-system SDK 54+)
+                const fileObj = new File(file.uri);
+                const fileInfo = await fileObj.info();
 
-                if (!fileInfo.exists || !('size' in fileInfo)) {
+                if (!fileInfo.exists || !fileInfo.size) {
                     return file;
                 }
 

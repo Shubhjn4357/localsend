@@ -2,32 +2,69 @@ import { Platform } from 'react-native';
 import type { Device } from '../../types/device';
 import { udpService } from './udpService';
 import { httpDiscoveryService } from './httpDiscoveryService';
+import { bluetoothService } from './bluetoothService';
+import { nearbyConnectionsService } from '../nearbyShare/nearbyConnectionsService';
 import { useDeviceStore } from '../../stores/deviceStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { DEVICE_TIMEOUT } from '../../utils/constants';
 
 class DeviceService {
     private timeoutCheckInterval: NodeJS.Timeout | null = null;
+    private nearbyEndpointMap = new Map<string, string>(); // fingerprint -> nearbyEndpointId
 
     async startDiscovery(): Promise<void> {
         const deviceStore = useDeviceStore.getState();
+        const settings = useSettingsStore.getState();
 
         // Clear existing devices
         deviceStore.clearDevices();
         deviceStore.setScanning(true);
 
         try {
-            // Use HTTP discovery on web, UDP on native platforms
+            // Use HTTP discovery on web, UDP + Bluetooth + Nearby on native platforms
             if (Platform.OS === 'web') {
                 console.log('Using HTTP discovery for web platform');
                 await httpDiscoveryService.startDiscovery((device: Device) => {
                     this.handleDeviceDiscovered(device);
                 });
             } else {
-                console.log('Using UDP multicast discovery for native platform');
-                // Start UDP service
+                console.log('Starting multi-protocol discovery:');
+
+                // 1. UDP multicast discovery (primary method)
+                console.log('  - UDP multicast discovery');
                 await udpService.start((device: Device) => {
                     this.handleDeviceDiscovered(device);
                 });
+
+                // 2. Bluetooth discovery (if enabled)
+                if (settings.bluetoothEnabled) {
+                    console.log('  - Bluetooth BLE discovery');
+                    await bluetoothService.startDiscovery().catch(err => {
+                        console.log('Bluetooth discovery not available:', err.message);
+                    });
+                }
+
+                // 3. Nearby Connections discovery (for Android)
+                if (Platform.OS === 'android' && nearbyConnectionsService.isAvailable()) {
+                    console.log('  - Nearby Connections WiFi-Direct discovery');
+                    try {
+                        // Start advertising and discovery for Nearby
+                        const deviceName = settings.deviceAlias || settings.deviceName;
+                        await nearbyConnectionsService.startAdvertising(deviceName);
+                        await nearbyConnectionsService.startDiscovery();
+
+                        // Listen for Nearby endpoint discovery
+                        nearbyConnectionsService.onDeviceDiscovered((nearbyDevice) => {
+                            console.log(`🔗 Nearby endpoint discovered: ${nearbyDevice.name} (${nearbyDevice.endpointId})`);
+                            // Map endpoint to device - will be matched by name/alias later
+                            this.nearbyEndpointMap.set(nearbyDevice.name, nearbyDevice.endpointId);
+                        });
+                    } catch (err: any) {
+                        console.log('Nearby Connections discovery not available:', err.message);
+                    }
+                }
+
+                console.log('  - All discovery methods active');
             }
 
             // Start timeout checker
@@ -48,7 +85,17 @@ class DeviceService {
         if (Platform.OS === 'web') {
             await httpDiscoveryService.stopDiscovery();
         } else {
+            // Stop all native discovery services
             await udpService.stop();
+            await bluetoothService.stopDiscovery().catch(err => {
+                console.log('Bluetooth already stopped or not running');
+            });
+
+            // Stop Nearby Connections
+            if (Platform.OS === 'android' && nearbyConnectionsService.isAvailable()) {
+                await nearbyConnectionsService.stopAdvertising().catch(() => { });
+                await nearbyConnectionsService.stopDiscovery().catch(() => { });
+            }
         }
 
         // Stop timeout checker
@@ -57,15 +104,27 @@ class DeviceService {
             this.timeoutCheckInterval = null;
         }
 
+        // Clear endpoint map
+        this.nearbyEndpointMap.clear();
+
         deviceStore.setScanning(false);
         console.log('Device discovery stopped');
     }
 
     private handleDeviceDiscovered(device: Device): void {
         const deviceStore = useDeviceStore.getState();
+
+        // Check if we have a Nearby endpoint for this device (match by alias)
+        const nearbyEndpointId = this.nearbyEndpointMap.get(device.alias);
+        if (nearbyEndpointId) {
+            console.log(`✅ Matched Nearby endpoint for ${device.alias}: ${nearbyEndpointId}`);
+            device.nearbyEndpointId = nearbyEndpointId;
+        }
+
         deviceStore.addDevice(device);
-        console.log(`Device discovered: ${device.alias} (${device.ipAddress})`);
+        console.log(`Device discovered: ${device.alias} (${device.ipAddress})${nearbyEndpointId ? ' [Nearby Ready]' : ''}`);
     }
+
 
     private startTimeoutChecker(): void {
         // Check every 5 seconds

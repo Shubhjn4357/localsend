@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import type { Device } from '@/types/device';
 import type { PickedFile } from '../pickerService';
 
@@ -17,10 +17,14 @@ export class StreamingService {
     private readonly PARALLEL_CHUNKS = 3; // Send 3 chunks in parallel
 
     /**
-     * Check if file should use streaming (> 10MB)
+     * Check if file should use streaming (>10MB)
+     * NOTE: Streaming is currently disabled as it requires proper server endpoint implementation
+     * TODO: Implement /api/send/chunk endpoint on receiver before enabling
      */
     shouldUseStreaming(fileSize: number): boolean {
-        return fileSize > 10 * 1024 * 1024; // 10MB threshold
+        // Temporarily disabled - streaming requires server endpoint /api/send/chunk
+        return false;
+        // return fileSize > 10 * 1024 * 1024; // 10MB threshold
     }
 
     /**
@@ -31,9 +35,11 @@ export class StreamingService {
         file: PickedFile,
         onProgress?: (progress: TransferProgress) => void
     ): Promise<void> {
-        const fileInfo = await FileSystem.getInfoAsync(file.uri);
+        // Use new File API (expo-file-system SDK 54+)
+        const fileObj = new File(file.uri);
+        const fileInfo = await fileObj.info();
 
-        if (!fileInfo.exists || !('size' in fileInfo)) {
+        if (!fileInfo.exists || !fileInfo.size) {
             throw new Error('File not found');
         }
 

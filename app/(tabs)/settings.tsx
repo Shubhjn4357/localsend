@@ -446,48 +446,6 @@ export default function SettingsScreen() {
                 </Animated.View>
             </ScrollView>
 
-            {/* What's New Section */}
-            <SectionHeader icon="star-circle" title="What's New" theme={theme} />
-            <View style={styles.section}>
-                {CHANGELOG.map((version, index) => (
-                    <Pressable
-                        key={version.version}
-                        style={[styles.settingItem, { backgroundColor: theme.colors.surfaceVariant }]}
-                        onPress={() => setExpandedVersion(expandedVersion === version.version ? null : version.version)}
-                    >
-                        <View style={styles.settingItemContent}>
-                            <MaterialCommunityIcons name="update" size={24} color={theme.colors.primary} />
-                            <View style={{ flex: 1 }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                    <Text style={styles.settingLabel}>v{version.version}</Text>
-                                    {index === 0 && (
-                                        <View style={[styles.badge, { backgroundColor: theme.colors.primary }]}>
-                                            <Text style={[styles.badgeText, { color: theme.colors.onPrimary }]}>New</Text>
-                                        </View>
-                                    )}
-                                </View>
-                                <Text style={styles.settingSubtitle}>{version.date}</Text>
-                            </View>
-                            <MaterialCommunityIcons
-                                name={expandedVersion === version.version ? 'chevron-up' : 'chevron-down'}
-                                size={24}
-                                color={theme.colors.onSurfaceVariant}
-                            />
-                        </View>
-                        {expandedVersion === version.version && (
-                            <View style={styles.changelogContent}>
-                                {version.changes.map((change, idx) => (
-                                    <View key={idx} style={styles.changeItem}>
-                                        <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primary} />
-                                        <Text style={[styles.changeText, { color: theme.colors.onSurface }]}>{change}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-                    </Pressable>
-                ))}
-            </View>
-
             {/* Device Name Dialog */}
             <DeviceNameDialog
                 visible={showDeviceNameDialog}
@@ -640,17 +598,18 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
-    section: {
-        paddingHorizontal: 24,
-        marginBottom: 16,
-    },
     sectionDivider: {
         marginVertical: 16,
     },
     settingItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        marginHorizontal: 16,
+        marginBottom: 4,
         borderRadius: 12,
-        marginBottom: 8,
-        padding: 16,
     },
     settingItemContent: {
         flexDirection: 'row',
