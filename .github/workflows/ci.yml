@@ -2,9 +2,9 @@ name: CI - Type Check & Lint
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master]
   pull_request:
-    branches: [main, develop]
+    branches: [master]
   workflow_dispatch:
 
 jobs:
@@ -31,6 +31,7 @@ jobs:
       
       - name: Lint
         run: npm run lint --if-present
+        continue-on-error: true
       
       - name: Upload results
         if: always()

@@ -2,14 +2,24 @@ name: iOS Build
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master]
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Build environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+        default: 'preview'
 
 jobs:
   build:
-    name: Build iOS IPA
+    name: Build iOS IPA (${{ github.event.inputs.environment || 'preview' }})
     runs-on: macos-latest
     
     steps:
@@ -50,7 +60,7 @@ jobs:
           xcodebuild \
             -workspace ios/LocalSend.xcworkspace \
             -scheme LocalSend \
-            -configuration Release \
+            -configuration ${{ github.event.inputs.environment == 'development' && 'Debug' || 'Release' }} \
             -archivePath build/LocalSend.xcarchive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
@@ -71,7 +81,7 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: ios-ipa
+          name: ios-ipa-${{ github.event.inputs.environment || 'production' }}
           path: build/*.ipa
       
       - name: Upload to Release (if tag)

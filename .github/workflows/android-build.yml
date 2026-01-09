@@ -2,14 +2,24 @@ name: Android Build
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master]
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Build environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+        default: 'preview'
 
 jobs:
   build:
-    name: Build Android APK
+    name: Build Android APK (${{ github.event.inputs.environment || 'preview' }})
     runs-on: ubuntu-latest
     
     steps:
@@ -37,14 +47,28 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
       
-      - name: Build APK
+      - name: Build APK (Development)
+        if: github.event.inputs.environment == 'development'
+        working-directory: android
+        run: ./gradlew assembleDebug
+      
+      - name: Build APK (Preview/Production)
+        if: github.event.inputs.environment != 'development'
         working-directory: android
         run: ./gradlew assembleRelease
       
-      - name: Upload APK
+      - name: Upload APK (Development)
+        if: github.event.inputs.environment == 'development'
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
+          name: android-apk-${{ github.event.inputs.environment || 'production' }}
+          path: android/app/build/outputs/apk/debug/*.apk
+      
+      - name: Upload APK (Preview/Production)
+        if: github.event.inputs.environment != 'development'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-${{ github.event.inputs.environment || 'production' }}
           path: android/app/build/outputs/apk/release/*.apk
       
       - name: Upload to Release (if tag)
