@@ -2,7 +2,7 @@ name: iOS Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     tags:
       - 'v*'
   workflow_dispatch:
@@ -37,7 +37,9 @@ jobs:
           pod --version
       
       - name: Prebuild iOS
-        run: npx expo prebuild --platform ios --clean
+        run: |
+          rm -rf ios
+          npx expo prebuild --platform ios --clean
       
       - name: Install iOS dependencies
         working-directory: ios
@@ -50,6 +52,9 @@ jobs:
             -scheme LocalSend \
             -configuration Release \
             -archivePath build/LocalSend.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
             archive
       
       - name: Export IPA
@@ -58,7 +63,10 @@ jobs:
             -exportArchive \
             -archivePath build/LocalSend.xcarchive \
             -exportPath build \
-            -exportOptionsPlist ios/exportOptions.plist
+            -exportOptionsPlist ios/exportOptions.plist \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
       
       - name: Upload IPA
         uses: actions/upload-artifact@v4
