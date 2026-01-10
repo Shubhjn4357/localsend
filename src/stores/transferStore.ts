@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Transfer, FileInfo } from '../types/transfer';
+import type { Device } from '../types/device';
 
 interface TransferStore {
     transfers: Transfer[];
@@ -13,6 +14,14 @@ interface TransferStore {
     removeTransfer: (id: string) => void;
     clearCompletedTransfers: () => void;
 
+    // Incoming request state
+    incomingRequest: {
+        sessionId: string;
+        sender: Device;
+        files: FileInfo[];
+    } | null;
+    setIncomingRequest: (request: { sessionId: string; sender: Device; files: FileInfo[] } | null) => void;
+
     // File selection
     addFiles: (files: FileInfo[]) => void;
     removeFile: (fileId: string) => void;
@@ -22,6 +31,8 @@ interface TransferStore {
 export const useTransferStore = create<TransferStore>((set) => ({
     transfers: [],
     selectedFiles: [],
+    incomingRequest: null,
+    setIncomingRequest: (request) => set({ incomingRequest: request }),
 
     addTransfer: (transfer) =>
         set((state) => ({

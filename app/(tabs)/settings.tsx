@@ -11,7 +11,8 @@ import { DeviceNameDialog } from '@/components/DeviceNameDialog';
 import { PrivacyPolicyScreen } from '@/components/PrivacyPolicyScreen';
 import { ThemedAlert } from '@/components/ThemedAlert';
 import { CurlySpinner } from '@/components/CurlySpinner';
-import * as Network from 'expo-network';
+import { ConnectivityStatus } from '@/components/ConnectivityStatus';
+
 import type { AppTheme } from '@/theme/colors';
 import type { ThemeMode, ColorScheme, Language, DestinationFolder } from '@/types/settings';
 import { LANGUAGES, COLOR_SCHEMES, DESTINATION_FOLDERS } from '@/types/settings';
@@ -317,6 +318,9 @@ export default function SettingsScreen() {
                 {/* Network Section */}
                 <Animated.View entering={FadeIn.delay(200)}>
                     <SectionHeader icon="network" title="Network" theme={theme} />
+
+                    {/* Connectivity Status */}
+                    {Platform.OS !== 'web' && <ConnectivityStatus />}
 
                     <SettingItem
                         icon="devices"

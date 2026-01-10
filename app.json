@@ -54,7 +54,8 @@
         "BLUETOOTH_CONNECT",
         "BLUETOOTH_ADVERTISE",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "NEARBY_WIFI_DEVICES"
       ],
       "minSdkVersion": 24,
       "compileSdkVersion": 35

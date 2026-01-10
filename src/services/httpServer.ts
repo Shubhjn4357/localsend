@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import { File, Directory, Paths } from 'expo-file-system/next';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useTransferStore } from '../stores/transferStore';
 import type { TransferRequest, TransferResponse, FileInfo, Transfer } from '../types/transfer';
@@ -191,6 +191,11 @@ class HttpServer {
             } else {
                 // Emit event for manual acceptance
                 transferEvents.emitIncomingTransfer(sessionId, request);
+                useTransferStore.getState().setIncomingRequest({
+                    sessionId,
+                    sender: session.senderInfo,
+                    files: fileInfos
+                });
 
                 // Wait for user decision (with timeout)
                 const accepted = await new Promise<boolean>((resolve) => {
@@ -232,8 +237,9 @@ class HttpServer {
     }
 
     /**
-     * POST /api/localsend/v2/upload
-     * Receive file data
+     * POST/GET /api/localsend/v2/upload
+     * POST: Receive file data
+     * GET: Check current file size for resume
      */
     private async handleUpload(req: any): Promise<any> {
         try {
@@ -248,8 +254,9 @@ class HttpServer {
                 return { status: 404, body: 'Session not found' };
             }
 
-            if (session.status !== 'accepted' && session.status !== 'receiving') {
-                return { status: 403, body: 'Session not accepted' };
+            // Allow checking status even if pending/accepted
+            if (!['accepted', 'receiving', 'pending'].includes(session.status)) {
+                return { status: 403, body: 'Session invalid' };
             }
 
             const fileData = session.files.get(fileId);
@@ -261,28 +268,111 @@ class HttpServer {
                 return { status: 403, body: 'Invalid token' };
             }
 
+            const settings = useSettingsStore.getState();
+            // Use new Paths API for document directory
+            const docDir = Paths.document.uri;
+            const downloadDir = settings.downloadPath || `${docDir}/Download`;
+
+            // Ensure directory exists using new Directory API
+            const downloadDirectory = new Directory(downloadDir);
+            if (!downloadDirectory.exists) {
+                downloadDirectory.create();
+            }
+
+            const filePath = `${downloadDir}/${fileData.fileInfo.fileName}`;
+
+            // Handle GET request for Resume Probing
+            if (req.method === 'GET') {
+                const file = new File(filePath);
+                return {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        exists: file.exists,
+                        size: file.exists ? file.size : 0,
+                    }),
+                };
+            }
+
+            if (session.status !== 'accepted' && session.status !== 'receiving') {
+                return { status: 403, body: 'Session not accepted' };
+            }
+
             // Update session status
             session.status = 'receiving';
 
-            // Save file to filesystem
-            const settings = useSettingsStore.getState();
-            const downloadDir = settings.downloadPath || '';
+            // Check for Range header to support resumption
+            const rangeHeader = req.headers['range'] || req.headers['Range'];
+            let appendStartByte = 0;
+            let isAppend = false;
 
-            if (!downloadDir) {
-                return { status: 500, body: 'Download directory not configured' };
+            if (rangeHeader) {
+                // Format: bytes=start-end
+                const matches = rangeHeader.match(/bytes=(\d+)-/);
+                if (matches) {
+                    const startByte = parseInt(matches[1], 10);
+                    const file = new File(filePath);
+
+                    if (file.exists && file.size === startByte) {
+                        isAppend = true;
+                        appendStartByte = startByte;
+                        console.log(`Resuming file ${fileData.fileInfo.fileName} from byte ${startByte}`);
+                    } else if (startByte > 0) {
+                        console.warn(`Range mismatch: Request starts at ${startByte}, file is ${file.exists ? file.size : 0}`);
+                        return { status: 416, body: 'Range Not Satisfiable' };
+                    }
+                }
             }
-            const filePath = `${downloadDir}/${fileData.fileInfo.fileName}`;
 
-            // Write binary data (req.body is already base64)
-            await FileSystem.writeAsStringAsync(filePath, req.body, {
-                encoding: 'base64' as any,
-            });
+            // Write content using modern File API
+            // We use Buffer to decode the base64 body for binary writing
+            try {
+                // Ensure Buffer is available (polyfilled in React Native)
+                const BufferClass = global.Buffer || require('buffer').Buffer;
 
-            // Mark file as received
-            fileData.received = true;
-            fileData.fileInfo.uri = filePath;
+                // Decode base64 request body to binary buffer
+                const buffer: Uint8Array = BufferClass.from(req.body, 'base64');
 
-            console.log(`File received: ${fileData.fileInfo.fileName} -> ${filePath}`);
+                // File class is already imported at top level
+                const file = new File(filePath);
+
+                if (!file.exists) {
+                    file.create();
+                }
+
+                const handle = file.open(); // Open file handle
+
+                if (isAppend) {
+                    // Set offset to append point for resumption
+                    // FileHandle has offset property that can be set
+                    handle.offset = appendStartByte;
+                }
+
+                // Write binary data using correct FileHandle method
+                // writeBytes takes Uint8Array
+                handle.writeBytes(buffer);
+                handle.close();
+
+            } catch (e) {
+                console.error('Modern File API write failed:', e);
+                // We no longer fallback to legacy API to avoid memory issues with large files
+                return { status: 500, body: 'File write failed' };
+            }
+
+            // Mark file as received if size matches
+            // We assume the client sends the rest of the file
+            // Verify final size
+            // Mark file as received if size matches
+            // We assume the client sends the rest of the file
+            // Verify final size
+            const finalFile = new File(filePath);
+            if (finalFile.exists && finalFile.size >= fileData.fileInfo.size) {
+                fileData.received = true;
+                fileData.fileInfo.uri = filePath;
+                console.log(`File transfer complete: ${fileData.fileInfo.fileName}`);
+            } else {
+                console.log(`File chunk received: ${finalFile.size}/${fileData.fileInfo.size}`);
+            }
 
             // Update transfer store
             const transferStore = useTransferStore.getState();
@@ -290,7 +380,7 @@ class HttpServer {
             if (transfer) {
                 transferStore.updateProgress(
                     transfer.id,
-                    transfer.transferredSize + fileData.fileInfo.size,
+                    finalFile.exists ? finalFile.size : 0, 
                     0
                 );
             }
@@ -423,6 +513,7 @@ class HttpServer {
             pending.resolve(true);
             this.pendingTransfers.delete(sessionId);
             transferEvents.emitTransferAccepted(sessionId);
+            useTransferStore.getState().setIncomingRequest(null);
         }
     }
 
@@ -432,6 +523,7 @@ class HttpServer {
             pending.resolve(false);
             this.pendingTransfers.delete(sessionId);
             transferEvents.emitTransferRejected(sessionId);
+            useTransferStore.getState().setIncomingRequest(null);
         }
     }
 }

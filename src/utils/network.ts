@@ -1,4 +1,5 @@
-import * as Network from 'expo-network';
+import NetInfo from '@react-native-community/netinfo';
+import WifiManager from 'react-native-wifi-reborn';
 import { Platform } from 'react-native';
 
 export interface NetworkInfo {
@@ -9,13 +10,24 @@ export interface NetworkInfo {
 
 export const getNetworkInfo = async (): Promise<NetworkInfo> => {
     try {
-        const ipAddress = await Network.getIpAddressAsync();
-        const networkState = await Network.getNetworkStateAsync();
+        const state = await NetInfo.fetch();
+        let ipAddress = '0.0.0.0';
+
+        if (Platform.OS !== 'web') {
+            try {
+                ipAddress = await WifiManager.getIP();
+            } catch (e) {
+                // Fallback or ignore if not on WiFi
+                if (state.details && 'ipAddress' in state.details) {
+                    ipAddress = (state.details as any).ipAddress || '0.0.0.0';
+                }
+            }
+        }
 
         return {
-            ipAddress: ipAddress || '0.0.0.0',
-            isConnected: networkState.isConnected || false,
-            networkType: networkState.type || 'unknown',
+            ipAddress,
+            isConnected: state.isConnected || false,
+            networkType: state.type || 'unknown',
         };
     } catch (error) {
         console.error('Failed to get network info:', error);

@@ -137,7 +137,7 @@ class FileTransferService {
     }
 
     /**
-     * Step 2: Upload individual file
+     * Step 2: Upload individual file with Resume capability
      */
     private async uploadFile(device: Device, sessionId: string, file: PickedFile): Promise<void> {
         try {
@@ -146,36 +146,65 @@ class FileTransferService {
                 throw new Error('File token not found');
             }
 
+            // Base URL
+            const baseUrl = `${device.protocol}://${device.ipAddress}:${device.port}/api/localsend/v2/upload?sessionId=${sessionId}&fileId=${encodeURIComponent(file.uri)}&token=${token}`;
+
+            // Step 2a: Probe server for existing bytes (Resume check)
+            let startByte = 0;
+            try {
+                const probeResponse = await fetch(baseUrl, { method: 'GET' });
+                if (probeResponse.ok) {
+                    const probeData = await probeResponse.json();
+                    if (probeData.exists && probeData.size > 0 && probeData.size < file.size) {
+                        // Found partial file, resume from safe offset (multiple of 3 for Base64)
+                        startByte = Math.floor(probeData.size / 3) * 3;
+                        console.log(`Resuming ${file.name} from byte ${startByte} (Server has ${probeData.size})`);
+                    }
+                }
+            } catch (e) {
+                console.warn('Probe for resume failed, starting from scratch', e);
+            }
+
             // Read file as base64
             const fileData = await FileSystem.readAsStringAsync(file.uri, {
                 encoding: 'base64' as any,
             });
 
-            // Send file
-            const url = `${device.protocol}://${device.ipAddress}:${device.port}/api/localsend/v2/upload?sessionId=${sessionId}&fileId=${encodeURIComponent(file.uri)}&token=${token}`;
+            let body = fileData;
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/octet-stream',
+            };
 
+            if (startByte > 0) {
+                // Slice the base64 string
+                // 3 bytes = 4 chars
+                const startChar = (startByte / 3) * 4;
+                body = fileData.slice(startChar);
+                headers['Range'] = `bytes=${startByte}-`;
+            }
+
+            // Send file
             const startTime = Date.now();
-            const response = await fetch(url, {
+            const response = await fetch(baseUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/octet-stream',
-                },
-                body: fileData,
+                headers: headers,
+                body: body,
             });
 
             if (!response.ok) {
+                // Handle 416 specifically?
                 throw new Error(`HTTP ${response.status}: ${await response.text()}`);
             }
 
             const endTime = Date.now();
             const duration = (endTime - startTime) / 1000; // seconds
-            const speed = file.size / duration; // bytes per second
+            const speed = (file.size - startByte) / duration; // bytes per second
 
             // Update transfer progress
             const transferStore = useTransferStore.getState();
             const transfer = transferStore.transfers.find(t => t.sessionId === sessionId);
             if (transfer) {
-                const newTransferred = transfer.transferredSize + file.size;
+                const newTransferred = transfer.transferredSize + file.size; // This tracks total session progress mostly
                 transferStore.updateProgress(transfer.id, newTransferred, speed);
 
                 // Check if all files are transferred

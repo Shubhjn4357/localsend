@@ -1,0 +1,9 @@
+{
+  "platforms": ["android", "ios"],
+  "android": {
+    "modules": ["com.localsend.settings.SystemSettingsPackage"]
+  },
+  "ios": {
+    "modules": ["SystemSettingsModule"]
+  }
+}

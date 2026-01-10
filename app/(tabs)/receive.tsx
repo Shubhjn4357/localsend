@@ -3,23 +3,28 @@ import { StyleSheet, View, Pressable } from 'react-native';
 import { Text, Switch, Chip, useTheme, IconButton } from 'react-native-paper';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Network from 'expo-network';
+import { getNetworkInfo } from '@/utils/network';
 import { CurlySpinner } from '@/components/CurlySpinner';
 import { QRScannerModal } from '@/components/QRScannerModal';
 import { QRDisplayModal } from '@/components/QRDisplayModal';
 import { TransferRequestDialog } from '@/components/TransferRequestDialog';
 import { DiscoveredDeviceCard } from '@/components/DiscoveredDeviceCard';
 import { ManualSendingDialog } from '@/components/ManualSendingDialog';
+import { DeviceDetailsDialog } from '@/components/DeviceDetailsDialog';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useDeviceStore } from '@/stores/deviceStore';
+import { useTransferStore } from '@/stores/transferStore';
 import type { AppTheme } from '@/theme/colors';
+import type { Device } from '@/types/device';
 import { httpServer } from '@/services/httpServer';
 import { transferEvents } from '@/services/transferEvents';
 import { deviceService } from '@/services/discovery/deviceService';
 import { httpDiscoveryService } from '@/services/discovery/httpDiscoveryService';
+import { reverseProxyService } from '@/services/network/reverseProxyService';
 import type { TransferRequest } from '@/types/transfer';
 
 export default function ReceiveScreen() {
@@ -43,7 +48,7 @@ export default function ReceiveScreen() {
         useFavoritesStore.getState().loadFavorites();
 
         // Load IP address immediately
-        Network.getIpAddressAsync().then(ip => setIpAddress(ip)).catch(() => setIpAddress('N/A'));
+        getNetworkInfo().then(info => setIpAddress(info.ipAddress));
     }, []);
 
     // QR and Transfer request state
@@ -52,15 +57,16 @@ export default function ReceiveScreen() {
     const [qrData, setQrData] = useState('');
     const [showManualConnection, setShowManualConnection] = useState(false);
 
-    // Transfer request state
-    const [showTransferRequest, setShowTransferRequest] = useState(false);
-    const [pendingTransferRequest, setPendingTransferRequest] = useState<{
-        sessionId: string;
-        request: TransferRequest;
-    } | null>(null);
+    // Device details state
+    const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+    const [showDeviceDetails, setShowDeviceDetails] = useState(false);
+
+    // Transfer request state (now from store)
+    const incomingRequest = useTransferStore((state) => state.incomingRequest);
 
     // Network state
     const [ipAddress, setIpAddress] = useState<string>('...');
+    const [networkSSID, setNetworkSSID] = useState<string | null>(null);
 
     // Device store for showing discovered senders
     const allDevices = useDeviceStore((state) => state.devices);
@@ -72,13 +78,24 @@ export default function ReceiveScreen() {
             if (serverRunning) {
                 // Start HTTP server for receiving files
                 const started = await httpServer.start();
-                if (!started) {
+                if (started) {
+                    // Start Reverse Proxy for HTTPS
+                    try {
+                        const { reverseProxyService } = require('@/services/network/reverseProxyService');
+                        await reverseProxyService.start();
+                        console.log('Secure Reverse Proxy started');
+                    } catch (e) {
+                        console.warn('Failed to start reverse proxy:', e);
+                    }
+                } else {
                     console.error('Failed to start HTTP server');
                     setServerRunning(false);
                 }
             } else {
                 // Stop HTTP server
                 try {
+                    const { reverseProxyService } = require('@/services/network/reverseProxyService');
+                    reverseProxyService.stop();
                     await httpServer.stop();
                 } catch (error) {
                     console.error('Error stopping server:', error);
@@ -112,25 +129,14 @@ export default function ReceiveScreen() {
         };
     }, []);
 
-    // Listen for incoming transfer requests
-    useEffect(() => {
-        const handleIncomingTransfer = (data: { sessionId: string; request: TransferRequest }) => {
-            setPendingTransferRequest(data);
-            setShowTransferRequest(true);
-        };
-
-        transferEvents.onIncomingTransfer(handleIncomingTransfer);
-
-        return () => {
-            transferEvents.offIncomingTransfer(handleIncomingTransfer);
-        };
-    }, []);
+    // Listen for incoming transfer requests (handled by store now)
+    // Legacy event listener removed in favor of store observation
 
 
 
     const handleShowQR = useCallback(async () => {
-        const ip = await Network.getIpAddressAsync();
-        const data = `localsend:${serverPort}:${deviceName}:${ip}`;
+        const info = await getNetworkInfo();
+        const data = `localsend:${serverPort}:${deviceName}:${info.ipAddress}`;
         setQrData(data);
         setShowQRDisplay(true);
     }, [serverPort, deviceName]);
@@ -142,20 +148,16 @@ export default function ReceiveScreen() {
     }, []);
 
     const handleAcceptTransfer = useCallback(() => {
-        if (pendingTransferRequest) {
-            httpServer.acceptTransfer(pendingTransferRequest.sessionId);
-            setShowTransferRequest(false);
-            setPendingTransferRequest(null);
+        if (incomingRequest) {
+            httpServer.acceptTransfer(incomingRequest.sessionId);
         }
-    }, [pendingTransferRequest]);
+    }, [incomingRequest]);
 
     const handleRejectTransfer = useCallback(() => {
-        if (pendingTransferRequest) {
-            httpServer.rejectTransfer(pendingTransferRequest.sessionId);
-            setShowTransferRequest(false);
-            setPendingTransferRequest(null);
+        if (incomingRequest) {
+            httpServer.rejectTransfer(incomingRequest.sessionId);
         }
-    }, [pendingTransferRequest]);
+    }, [incomingRequest]);
 
     const handleRefreshDiscovery = useCallback(async () => {
         console.log('Refreshing device discovery...');
@@ -163,9 +165,11 @@ export default function ReceiveScreen() {
         await deviceService.startDiscovery();
     }, []);
 
-    const handleManualConnect = useCallback(async (type: 'hashtag' | 'ip', value: string) => {
+    const handleManualConnect = useCallback(async (type: 'key' | 'hashtag' | 'ip', value: string) => {
         if (type === 'ip') {
-            console.log(`Attempting manual connection to ${value}...`);
+            // Assuming showAlert is defined elsewhere or needs to be added
+            // For now, using console.log as a placeholder for showAlert
+            console.log(t('common.info'), `Connecting to ${value}...`);
             try {
                 const device = await httpDiscoveryService.checkDevice(value);
                 if (device) {
@@ -190,7 +194,12 @@ export default function ReceiveScreen() {
     }, [allDevices]);
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
+        <LinearGradient
+            colors={[theme.colors.background, theme.colors.surfaceVariant]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.container, { paddingTop: insets.top }]}
+        >
             {/* Main Content */}
             <View style={styles.content}>
 
@@ -221,9 +230,9 @@ export default function ReceiveScreen() {
                 </View>
 
                 {/* Center Spinner Animation */}
-                <Animated.View entering={FadeIn} style={styles.spinnerContainer}>
+                {/* <Animated.View entering={FadeIn} style={styles.spinnerContainer}>
                     <CurlySpinner size={120} color={theme.colors.primary} />
-                </Animated.View>
+                </Animated.View> */}
 
                 {/* Device Name */}
                 <Animated.View entering={FadeIn.delay(200)} style={styles.deviceInfoContainer}>
@@ -337,7 +346,9 @@ export default function ReceiveScreen() {
                                     connectionType={connectionType as 'bluetooth' | 'wifi' | 'nearby'}
                                     onTap={() => {
                                         console.log('Tapped device:', device.alias);
-                                        // TODO: Handle device selection for receiving
+                                        // Show device details dialog
+                                        setSelectedDevice(device);
+                                        setShowDeviceDetails(true);
                                     }}
                                     theme={theme}
                                 />
@@ -445,12 +456,33 @@ export default function ReceiveScreen() {
 
             {/* Transfer Request Dialog */}
             <TransferRequestDialog
-                visible={showTransferRequest}
+                visible={!!incomingRequest}
                 onAccept={handleAcceptTransfer}
                 onReject={handleRejectTransfer}
-                request={pendingTransferRequest?.request || null}
+                request={incomingRequest ? {
+                    info: incomingRequest.sender,
+                    files: incomingRequest.files.reduce((acc, file) => ({
+                        ...acc,
+                        [file.id]: {
+                            id: file.id,
+                            fileName: file.fileName,
+                            size: file.size,
+                            fileType: file.fileType,
+                            preview: file.preview
+                        }
+                    }), {})
+                } as any : null}
             />
-        </View>
+
+            {/* Device Details Dialog */}
+            <DeviceDetailsDialog
+                visible={showDeviceDetails}
+                device={selectedDevice}
+                onDismiss={() => setShowDeviceDetails(false)}
+                ipAddress={ipAddress}
+                networkSSID={networkSSID || undefined}
+            />
+        </LinearGradient>
     );
 }
 

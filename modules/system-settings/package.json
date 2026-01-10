@@ -1,0 +1,7 @@
+{
+  "name": "system-settings",
+  "version": "1.0.0",
+  "description": "Native module for WiFi and Bluetooth system settings",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

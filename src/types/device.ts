@@ -12,7 +12,7 @@ export interface Device {
 
     // Optional Bluetooth/connection fields
     bluetoothAddress?: string;
-    connectionType?: 'wifi' | 'bluetooth' | 'wifi-direct';
+    connectionType?: 'wifi' | 'bluetooth' | 'wifi-direct' | 'nearby';
 
     // Nearby Connections support (Android only)
     supportsNearby?: boolean;           // Device supports Nearby Connections

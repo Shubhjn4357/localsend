@@ -5,6 +5,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { Text, IconButton, useTheme, FAB } from 'react-native-paper';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,7 +35,7 @@ import { shareViaSystem } from '@/services/nativeShare/systemShare';
 import type { Device } from '@/types/device';
 import type { AppTheme } from '@/theme/colors';
 import type { FileTypeOption } from '@/utils/constants';
-
+import { findDeviceByKey } from '@/utils/connectionKey';
 export default function SendScreen() {
     const { t } = useTranslation();
     const theme = useTheme<AppTheme>();
@@ -240,25 +241,98 @@ export default function SendScreen() {
 
     const [showSelectedFilesModal, setShowSelectedFilesModal] = useState(false);
 
-    const handleManualConnect = useCallback(async (type: 'hashtag' | 'ip', value: string) => {
-        if (type === 'ip') {
-            showAlert(t('common.info'), `Connecting to ${value}...`);
+    const handleManualConnect = useCallback(async (type: 'key' | 'hashtag' | 'ip', value: string) => {
+        if (type === 'key') {
+            // Connection key - find matching device
+            showAlert(t('common.info'), `Looking for device with key ${value}...`);
+
             try {
-                const device = await httpDiscoveryService.checkDevice(value);
+                // Search in discovered devices
+                const allDevices = useDeviceStore.getState().devices;
+                const device = findDeviceByKey(value, allDevices);
+
                 if (device) {
-                    useDeviceStore.getState().addDevice(device);
+                    console.log(`Found device matching key: ${device.alias}`);
                     handleSendFiles(device);
-                    // Close manual sending dialog
                     setShowManualSending(false);
                 } else {
-                    showAlert(t('common.error'), `Could not find device at ${value}`);
+                    showAlert(
+                        t('common.error'),
+                        `No device found with connection key ${value}. Make sure the device is on the same network and discovery is active.`
+                    );
                 }
+            } catch (error) {
+                console.error('Key matching error:', error);
+                showAlert(t('common.error'), `Failed to find device: ${error}`);
+            }
+        } else if (type === 'ip') {
+            showAlert(t('common.info'), `Connecting to ${value}...`);
+            try {
+                // Try HTTP discovery first
+                let device = await httpDiscoveryService.checkDevice(value);
+
+                if (!device) {
+                    // Try to fetch device info from /info endpoint
+                    console.log('HTTP discovery failed, fetching device info...');
+
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+                        const response = await fetch(`http://${value}:53317/api/localsend/v2/info`, {
+                            method: 'GET',
+                            signal: controller.signal,
+                        });
+
+                        clearTimeout(timeoutId);
+
+                        if (response.ok) {
+                            const info = await response.json();
+
+                            device = {
+                                fingerprint: info.fingerprint || `manual_${value}_${Date.now()}`,
+                                alias: info.alias || `Device at ${value}`,
+                                deviceType: info.deviceType || 'mobile',
+                                deviceModel: info.deviceModel,
+                                ipAddress: value,
+                                port: info.port || 53317,
+                                protocol: info.protocol || 'https',
+                                version: info.version || '2.3.5b',
+                                lastSeen: Date.now(),
+                                isOnline: true,
+                            };
+                        }
+                    } catch (infoError) {
+                        console.log('Failed to fetch device info:', infoError);
+                    }
+
+                    // If still no device, create with defaults
+                    if (!device) {
+                        device = {
+                            fingerprint: `manual_${value}_${Date.now()}`,
+                            alias: `Device at ${value}`,
+                            deviceType: 'mobile' as const,
+                            deviceModel: undefined,
+                            ipAddress: value,
+                            port: 53317,
+                            protocol: 'https' as const,
+                            version: '2.3.5b',
+                            lastSeen: Date.now(),
+                            isOnline: true,
+                        };
+                    }
+                }
+
+                useDeviceStore.getState().addDevice(device);
+                handleSendFiles(device);
+                // Close manual sending dialog
+                setShowManualSending(false);
             } catch (e) {
                 console.error(e);
                 showAlert(t('common.error'), `Connection failed: ${e}`);
             }
         } else {
-            showAlert(t('common.info'), 'Hashtag connection requires multicast which might not be reliable manually. Please try IP.');
+            showAlert(t('common.info'), 'Hashtag connection requires multicast which might not be reliable manually. Please try IP or Connection Key.');
         }
     }, [t, handleSendFiles, setShowManualSending]);
 
@@ -315,7 +389,12 @@ export default function SendScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
+        <LinearGradient
+            colors={[theme.colors.background, theme.colors.surfaceVariant]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.container, { paddingTop: insets.top }]}
+        >
             {selectedFiles.length > 0 ? (
                 <SelectionHeader
                     fileCount={selectedFiles.length}
@@ -494,7 +573,7 @@ export default function SendScreen() {
                 visible={showProgressOverlay}
                 onClose={() => setShowProgressOverlay(false)}
             />
-        </View>
+        </LinearGradient>
     );
 }
 

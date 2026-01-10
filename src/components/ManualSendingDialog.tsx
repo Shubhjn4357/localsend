@@ -3,16 +3,17 @@ import { StyleSheet, View, TextInput, Pressable, KeyboardAvoidingView, Platform 
 import { Modal, Portal, Text, Button, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { AppTheme } from '@/theme/colors';
+import { normalizeConnectionKey, isValidConnectionKey } from '@/utils/connectionKey';
 
 interface ManualSendingDialogProps {
     visible: boolean;
     onClose: () => void;
-    onConnect: (type: 'hashtag' | 'ip', value: string) => void;
+    onConnect: (type: 'key' | 'hashtag' | 'ip', value: string) => void;
 }
 
 export function ManualSendingDialog({ visible, onClose, onConnect }: ManualSendingDialogProps) {
     const theme = useTheme<AppTheme>();
-    const [selectedTab, setSelectedTab] = useState<'hashtag' | 'ip'>('hashtag');
+    const [selectedTab, setSelectedTab] = useState<'key' | 'hashtag' | 'ip'>('key');
     const [value, setValue] = useState('');
 
     const handleConfirm = () => {
@@ -62,15 +63,15 @@ export function ManualSendingDialog({ visible, onClose, onConnect }: ManualSendi
                         <Pressable
                             style={[
                                 styles.tab,
-                                selectedTab === 'hashtag' && styles.tabActive,
+                                selectedTab === 'key' && styles.tabActive,
                                 {
-                                    backgroundColor: selectedTab === 'hashtag'
+                                    backgroundColor: selectedTab === 'key'
                                         ? theme.colors.primaryContainer
                                         : theme.colors.surfaceVariant,
                                 },
                             ]}
                             onPress={() => {
-                                setSelectedTab('hashtag');
+                                setSelectedTab('key');
                                 setValue('');
                             }}
                         >
@@ -78,15 +79,16 @@ export function ManualSendingDialog({ visible, onClose, onConnect }: ManualSendi
                                 style={[
                                     styles.tabText,
                                     {
-                                        color: selectedTab === 'hashtag'
+                                        color: selectedTab === 'key'
                                             ? theme.colors.onPrimaryContainer
                                             : theme.colors.onSurfaceVariant,
                                     },
                                 ]}
                             >
-                                Hashtag
+                                Connection Key
                             </Text>
                         </Pressable>
+
                         <Pressable
                             style={[
                                 styles.tab,
@@ -115,11 +117,74 @@ export function ManualSendingDialog({ visible, onClose, onConnect }: ManualSendi
                                 IP Address
                             </Text>
                         </Pressable>
+
+                        <Pressable
+                            style={[
+                                styles.tab,
+                                selectedTab === 'hashtag' && styles.tabActive,
+                                {
+                                    backgroundColor: selectedTab === 'hashtag'
+                                        ? theme.colors.primaryContainer
+                                        : theme.colors.surfaceVariant,
+                                },
+                            ]}
+                            onPress={() => {
+                                setSelectedTab('hashtag');
+                                setValue('');
+                            }}
+                        >
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    {
+                                        color: selectedTab === 'hashtag'
+                                            ? theme.colors.onPrimaryContainer
+                                            : theme.colors.onSurfaceVariant,
+                                    },
+                                ]}
+                            >
+                                Hashtag
+                            </Text>
+                        </Pressable>
                     </View>
 
                     {/* Input Section */}
                     <View style={styles.inputSection}>
-                        {selectedTab === 'hashtag' ? (
+                        {selectedTab === 'key' ? (
+                            <View>
+                                <Text style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>
+                                    Enter Connection Key
+                                </Text>
+                                <TextInput
+                                    style={[
+                                        styles.input,
+                                        {
+                                            color: theme.colors.onSurface,
+                                            borderColor: theme.colors.outline,
+                                        },
+                                    ]}
+                                    value={value}
+                                    onChangeText={(text) => {
+                                        // Auto-format as user types
+                                        const normalized = normalizeConnectionKey(text);
+                                        setValue(normalized);
+                                    }}
+                                    placeholder="XXXX-YYYY"
+                                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                                    autoCapitalize="characters"
+                                    autoCorrect={false}
+                                    maxLength={9}
+                                />
+                                {value && !isValidConnectionKey(value) && (
+                                    <Text style={[styles.hint, { color: theme.colors.error }]}>
+                                        Invalid key format. Expected: XXXX-YYYY
+                                    </Text>
+                                )}
+                                <Text style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>
+                                    Enter the 8-character connection key from the receiver
+                                </Text>
+                            </View>
+                        ) : selectedTab === 'hashtag' ? (
                             <View style={styles.hashtagInput}>
                                 <Text style={[styles.hashSymbol, { color: theme.colors.onSurface }]}>
                                     #
@@ -234,6 +299,15 @@ const styles = StyleSheet.create({
     },
     inputSection: {
         marginBottom: 24,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '500',
+        marginBottom: 8,
+    },
+    hint: {
+        fontSize: 12,
+        marginTop: 4,
     },
     hashtagInput: {
         flexDirection: 'row',

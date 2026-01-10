@@ -160,7 +160,7 @@ class UDPService {
             deviceModel: ExpoDevice.modelName || undefined,
             deviceType: Platform.OS === 'ios' || Platform.OS === 'android' ? 'mobile' : 'web',
             fingerprint: this.fingerprint,
-            port: settings.serverPort,
+            port: settings.serverPort ? settings.serverPort + 1 : 53318,
             protocol: 'https',
             announce: true,
             supportsNearby: Platform.OS === 'android', // Android supports Nearby Connections

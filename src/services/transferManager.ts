@@ -29,16 +29,16 @@ export class TransferManager {
             } else if (this.shouldUseNearDrop(device)) {
                 console.log('📡 Using NearDrop (AirDrop-like)');
                 await this.sendViaNearDrop(device, optimizedFiles);
-            } else if (Platform.OS === 'web') {
-                // HTTP only allowed for web platform
-                console.log('📡 Using LocalSend (HTTP) - Web Platform');
+            } else if (Platform.OS === 'web' || device.deviceType === 'web') {
+                // Allow HTTP for web platform OR when sending to web devices
+                console.log(`📡 Using LocalSend (HTTP) - ${Platform.OS === 'web' ? 'Web sender' : 'Cross-platform to web'}`);
                 await this.sendViaLocalSend(device, optimizedFiles);
             } else {
-                // Mobile devices must use Nearby/Bluetooth - no HTTP fallback
+                // Mobile→Mobile requires Nearby/Bluetooth
                 throw new Error(
                     `Cannot transfer to ${device.alias}: ` +
                     `Device doesn't support Nearby Connections or Bluetooth. ` +
-                    `Both devices must have WiFi-Direct/Bluetooth enabled.`
+                    `Ensure WiFi-Direct/Bluetooth is enabled on both devices.`
                 );
             }
         } catch (error) {

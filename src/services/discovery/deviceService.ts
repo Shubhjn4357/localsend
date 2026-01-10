@@ -48,19 +48,40 @@ class DeviceService {
                 if (Platform.OS === 'android' && nearbyConnectionsService.isAvailable()) {
                     console.log('  - Nearby Connections WiFi-Direct discovery');
                     try {
-                        // Start advertising and discovery for Nearby
-                        const deviceName = settings.deviceAlias || settings.deviceName;
-                        await nearbyConnectionsService.startAdvertising(deviceName);
-                        await nearbyConnectionsService.startDiscovery();
+                        // Stop any existing sessions first
+                        await nearbyConnectionsService.stopAdvertising().catch(() => { });
+                        await nearbyConnectionsService.stopDiscovery().catch(() => { });
 
-                        // Listen for Nearby endpoint discovery
+                        console.log('  - Stopped existing Nearby sessions');
+
+                        // IMPORTANT: Register listener BEFORE starting discovery
                         nearbyConnectionsService.onDeviceDiscovered((nearbyDevice) => {
                             console.log(`🔗 Nearby endpoint discovered: ${nearbyDevice.name} (${nearbyDevice.endpointId})`);
                             // Map endpoint to device - will be matched by name/alias later
                             this.nearbyEndpointMap.set(nearbyDevice.name, nearbyDevice.endpointId);
+
+                            // Also try to match with already discovered devices
+                            const deviceStore = useDeviceStore.getState();
+                            const existingDevice = deviceStore.devices.find(d => d.alias === nearbyDevice.name);
+                            if (existingDevice) {
+                                console.log(`  ✅ Matched existing device: ${nearbyDevice.name}`);
+                                deviceStore.updateDevice(existingDevice.fingerprint, {
+                                    nearbyEndpointId: nearbyDevice.endpointId
+                                });
+                            }
                         });
+
+                        // Now start advertising and discovery
+                        const deviceName = settings.deviceAlias || settings.deviceName;
+                        console.log(`  - Starting Nearby advertising as: ${deviceName}`);
+                        await nearbyConnectionsService.startAdvertising(deviceName);
+
+                        console.log('  - Starting Nearby discovery...');
+                        await nearbyConnectionsService.startDiscovery();
+
+                        console.log('  ✅ Nearby Connections active and listening');
                     } catch (err: any) {
-                        console.log('Nearby Connections discovery not available:', err.message);
+                        console.log('  ❌ Nearby Connections failed:', err.message);
                     }
                 }
 

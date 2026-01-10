@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 import type { Device } from '../types/device';
 import type { AppTheme } from '../theme/colors';
@@ -59,6 +60,8 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
         return device.deviceType === 'mobile' ? 'Mobile' : 'Desktop';
     };
 
+    // ...
+
     return (
         <Animated.View
             entering={FadeInRight.duration(300)}
@@ -67,8 +70,13 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
         >
             <Pressable
                 onPress={() => onPress(device)}
-                style={[styles.card, { backgroundColor: theme.colors.surface }]}
             >
+                <LinearGradient
+                    colors={[theme.colors.surface, theme.colors.surfaceVariant]} // Subtle gradient
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.card}
+                >
                 <View style={styles.content}>
                     {/* Device Icon */}
                     <MaterialCommunityIcons
@@ -110,6 +118,7 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
                         </Pressable>
                     )}
                 </View>
+                </LinearGradient>
             </Pressable>
         </Animated.View>
     );
