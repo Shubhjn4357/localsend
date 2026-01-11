@@ -75,8 +75,8 @@ class TlsService {
         this.isGenerating = true;
 
         try {
-            // Use async key generation to avoid blocking the UI
-            const keys = await this.generateKeyPairAsync(2048);
+            // Use 1024-bit keys for faster generation (sufficient for local network TOFU model)
+            const keys = await this.generateKeyPairAsync(1024);
             
             const cert = forge.pki.createCertificate();
 

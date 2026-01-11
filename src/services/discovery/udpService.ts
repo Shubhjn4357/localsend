@@ -160,8 +160,8 @@ class UDPService {
             deviceModel: ExpoDevice.modelName || undefined,
             deviceType: Platform.OS === 'ios' || Platform.OS === 'android' ? 'mobile' : 'web',
             fingerprint: this.fingerprint,
-            port: settings.serverPort ? settings.serverPort + 1 : 53318,
-            protocol: 'https',
+            port: settings.serverPort || 53317,
+            protocol: 'http',
             announce: true,
         };
 
@@ -256,7 +256,8 @@ class UDPService {
             };
 
             // Send HTTP POST request with manual timeout (AbortSignal.timeout not available in RN)
-            const url = `${device.protocol}://${device.ipAddress}:${device.port}/api/localsend/v2/register`;
+            // Always use HTTP for register - HTTPS may not be available on the discovered device
+            const url = `http://${device.ipAddress}:${device.port}/api/localsend/v2/register`;
 
             // Create AbortController for timeout
             const controller = new AbortController();
@@ -278,7 +279,7 @@ class UDPService {
             }
         } catch (error) {
             // Silently fail - device might not have HTTP server running yet
-            console.log(`Could not send register response: ${error}`);
+            // This is normal during discovery - not all devices accept register responses
         }
     }
 

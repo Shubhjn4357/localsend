@@ -74,8 +74,9 @@ class FileTransferService {
                 files: fileMetadata,
             };
 
-            // Construct URL
-            let url = `${device.protocol}://${device.ipAddress}:${device.port}/api/localsend/v2/prepare-upload`;
+            // Construct URL - always use HTTP for compatibility
+            // Other LocalSend apps may announce HTTPS but we use HTTP for reliability
+            let url = `http://${device.ipAddress}:${device.port}/api/localsend/v2/prepare-upload`;
             if (pin) {
                 url += `?pin=${pin}`;
             }
@@ -146,8 +147,8 @@ class FileTransferService {
                 throw new Error('File token not found');
             }
 
-            // Base URL
-            const baseUrl = `${device.protocol}://${device.ipAddress}:${device.port}/api/localsend/v2/upload?sessionId=${sessionId}&fileId=${encodeURIComponent(file.uri)}&token=${token}`;
+            // Base URL - use HTTP for compatibility
+            const baseUrl = `http://${device.ipAddress}:${device.port}/api/localsend/v2/upload?sessionId=${sessionId}&fileId=${encodeURIComponent(file.uri)}&token=${token}`;
 
             // Step 2a: Probe server for existing bytes (Resume check)
             let startByte = 0;
@@ -228,7 +229,7 @@ class FileTransferService {
      */
     async cancelTransfer(device: Device, sessionId: string): Promise<void> {
         try {
-            const url = `${device.protocol}://${device.ipAddress}:${device.port}/api/localsend/v2/cancel?sessionId=${sessionId}`;
+            const url = `http://${device.ipAddress}:${device.port}/api/localsend/v2/cancel?sessionId=${sessionId}`;
 
             await fetch(url, {
                 method: 'POST',

@@ -24,7 +24,6 @@ import { httpServer } from '@/services/httpServer';
 import { transferEvents } from '@/services/transferEvents';
 import { deviceService } from '@/services/discovery/deviceService';
 import { httpDiscoveryService } from '@/services/discovery/httpDiscoveryService';
-import { reverseProxyService } from '@/services/network/reverseProxyService';
 import type { TransferRequest } from '@/types/transfer';
 
 export default function ReceiveScreen() {
@@ -77,27 +76,19 @@ export default function ReceiveScreen() {
         // Use InteractionManager to defer heavy operations until after UI renders
         const task = InteractionManager.runAfterInteractions(async () => {
             if (serverRunning) {
-                // Start HTTP server for receiving files
+                // Start HTTP server for receiving files (HTTP only - HTTPS disabled for performance)
                 const started = await httpServer.start();
-                if (started) {
-                    // Start Reverse Proxy for HTTPS
-                    try {
-                        const { reverseProxyService } = require('@/services/network/reverseProxyService');
-                        await reverseProxyService.start();
-                        console.log('Secure Reverse Proxy started');
-                    } catch (e) {
-                        console.warn('Failed to start reverse proxy:', e);
-                    }
-                } else {
+                if (!started) {
                     console.error('Failed to start HTTP server');
                     setServerRunning(false);
+                } else {
+                    console.log('HTTP server started successfully on port', serverPort);
                 }
             } else {
                 // Stop HTTP server
                 try {
-                    const { reverseProxyService } = require('@/services/network/reverseProxyService');
-                    reverseProxyService.stop();
                     await httpServer.stop();
+                    console.log('HTTP server stopped');
                 } catch (error) {
                     console.error('Error stopping server:', error);
                 }

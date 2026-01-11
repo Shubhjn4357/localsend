@@ -68,31 +68,23 @@
         "expo-build-properties",
         {
           "android": {
+            "usesCleartextTraffic": true,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 24,
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
             "enableMinifyInReleaseBuilds": true,
-            "extraProguardRules": "-dontwarn io.netty.**\n-dontwarn sun.security.**\n-dontwarn org.slf4j.**\n-dontwarn org.apache.log4j.**\n-dontwarn org.apache.logging.log4j.**"
+            "extraProguardRules": "-dontwarn io.netty.**\\n-dontwarn sun.security.**\\n-dontwarn org.slf4j.**\\n-dontwarn org.apache.log4j.**\\n-dontwarn org.apache.logging.log4j.**"
           },
           "ios": {
-            "useFrameworks": "static"
+            "useFrameworks": "static",
+            "deploymentTarget": "15.1",
+            "enableMacOSCatalyst": true
           }
         }
       ],
-      "expo-share-intent",
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "deploymentTarget": "15.1",
-            "enableMacOSCatalyst": true
-          },
-          "android": {
-            "compileSdkVersion": 36,
-            "targetSdkVersion": 35,
-            "minSdkVersion": 24
-          }
-        }
-      ]
+      "expo-share-intent"
     ],
     "experiments": {
       "typedRoutes": true
