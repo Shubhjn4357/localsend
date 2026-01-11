@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { StyleSheet, View, Pressable } from 'react-native';
+import { StyleSheet, View, Pressable, InteractionManager } from 'react-native';
 import { Text, Switch, Chip, useTheme, IconButton } from 'react-native-paper';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -74,7 +74,8 @@ export default function ReceiveScreen() {
 
     // Start/stop HTTP server based on serverRunning state
     useEffect(() => {
-        const init = async () => {
+        // Use InteractionManager to defer heavy operations until after UI renders
+        const task = InteractionManager.runAfterInteractions(async () => {
             if (serverRunning) {
                 // Start HTTP server for receiving files
                 const started = await httpServer.start();
@@ -101,12 +102,11 @@ export default function ReceiveScreen() {
                     console.error('Error stopping server:', error);
                 }
             }
-        };
+        });
 
-        init();
-
-        // Cleanup: stop server when component unmounts
+        // Cleanup: cancel pending task and stop server when component unmounts
         return () => {
+            task.cancel();
             if (serverRunning) {
                 httpServer.stop();
             }
@@ -336,24 +336,21 @@ export default function ReceiveScreen() {
                             )}
                         </View>
 
-                        {allDevices.map((device) => {
-                            const connectionType = device.connectionType === 'wifi-direct' ? 'nearby' : (device.connectionType || 'wifi');
-                            return (
-                                <DiscoveredDeviceCard
-                                    key={device.fingerprint}
-                                    deviceName={device.alias}
-                                    deviceId={`#${device.fingerprint}`}
-                                    connectionType={connectionType as 'bluetooth' | 'wifi' | 'nearby'}
-                                    onTap={() => {
-                                        console.log('Tapped device:', device.alias);
-                                        // Show device details dialog
-                                        setSelectedDevice(device);
-                                        setShowDeviceDetails(true);
-                                    }}
-                                    theme={theme}
-                                />
-                            );
-                        })}
+                        {allDevices.map((device) => (
+                            <DiscoveredDeviceCard
+                                key={device.fingerprint}
+                                deviceName={device.alias}
+                                deviceId={`#${device.fingerprint}`}
+                                connectionType="wifi"
+                                onTap={() => {
+                                    console.log('Tapped device:', device.alias);
+                                    // Show device details dialog
+                                    setSelectedDevice(device);
+                                    setShowDeviceDetails(true);
+                                }}
+                                theme={theme}
+                            />
+                        ))}
                     </Animated.View>
                 )}
 

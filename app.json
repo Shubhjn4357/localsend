@@ -48,11 +48,6 @@
         "CHANGE_WIFI_MULTICAST_STATE",
         "FOREGROUND_SERVICE",
         "POST_NOTIFICATIONS",
-        "BLUETOOTH",
-        "BLUETOOTH_ADMIN",
-        "BLUETOOTH_SCAN",
-        "BLUETOOTH_CONNECT",
-        "BLUETOOTH_ADVERTISE",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "NEARBY_WIFI_DEVICES"
@@ -84,8 +79,6 @@
         }
       ],
       "expo-share-intent",
-      "./plugins/withNearbyConnections",
-      "./plugins/withNearDrop",
       [
         "expo-build-properties",
         {

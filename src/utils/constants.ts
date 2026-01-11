@@ -63,13 +63,10 @@ export const CHANGELOG = [
         version: '3.1.0',
         date: '2026-01-02',
         changes: [
-            'Bluetooth BLE device discovery',
-            'Quick Share & AirDrop integration',
             'Enhanced progress overlay with real-time speed/ETA',
             'Transfer request dialog (manual accept/reject)',
             'PIN authentication for secure transfers',
             'Native system share support',
-            'Bluetooth settings toggle',
             'Complete type-safety (0 TypeScript errors)',
         ],
     },

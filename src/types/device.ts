@@ -1,3 +1,6 @@
+/**
+ * Device types for LocalSend protocol
+ */
 export interface Device {
     fingerprint: string;
     alias: string;
@@ -5,23 +8,10 @@ export interface Device {
     deviceModel?: string;
     ipAddress: string;
     port: number;
-    protocol: 'http' | 'https' | 'bluetooth';
+    protocol: 'http' | 'https';
     version: string;
     lastSeen: number;
     isOnline: boolean;
-
-    // Optional Bluetooth/connection fields
-    bluetoothAddress?: string;
-    connectionType?: 'wifi' | 'bluetooth' | 'wifi-direct' | 'nearby';
-
-    // Nearby Connections support (Android only)
-    supportsNearby?: boolean;           // Device supports Nearby Connections
-    nearbyEndpointId?: string;          // Nearby endpoint ID if discovered via Nearby
-    preferredProtocol?: 'nearby' | 'neardrop' | 'localsend';  // Preferred transfer protocol
-
-    // NearDrop support (macOS/iOS)
-    supportsNearDrop?: boolean;         // Device supports NearDrop protocol
-    nearDropEndpoint?: string;          // NearDrop endpoint (IP:port or hostname)
 }
 
 export interface DeviceAnnouncement {
@@ -31,8 +21,7 @@ export interface DeviceAnnouncement {
     deviceType: 'mobile' | 'desktop' | 'web' | 'headless' | 'server';
     fingerprint: string;
     port: number;
-    protocol: 'http' | 'https' | 'bluetooth';
+    protocol: 'http' | 'https';
     download?: boolean;
     announce: boolean;
-    supportsNearby?: boolean;  // Advertise Nearby Connections support
 }

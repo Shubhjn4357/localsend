@@ -12,6 +12,7 @@ export interface TlsCertificate {
 
 class TlsService {
     private certificate: TlsCertificate | null = null;
+    private isGenerating = false;
 
     /**
      * Initialize TLS service: load or generate certificates
@@ -19,6 +20,19 @@ class TlsService {
     async initialize(): Promise<TlsCertificate> {
         if (this.certificate) {
             return this.certificate;
+        }
+
+        // Prevent multiple simultaneous generations
+        if (this.isGenerating) {
+            // Wait for ongoing generation to complete
+            return new Promise((resolve) => {
+                const checkInterval = setInterval(() => {
+                    if (this.certificate) {
+                        clearInterval(checkInterval);
+                        resolve(this.certificate);
+                    }
+                }, 100);
+            });
         }
 
         try {
@@ -45,7 +59,7 @@ class TlsService {
             }
 
             // Generate new if missing
-            console.log('Generating new TLS certificates...');
+            console.log('Generating new TLS certificates (async)...');
             return await this.generateCertificate(keyFile, certFile);
         } catch (error) {
             console.error('Failed to initialize TLS:', error);
@@ -54,12 +68,16 @@ class TlsService {
     }
 
     /**
-     * Generate a self-signed certificate using node-forge
+     * Generate a self-signed certificate using node-forge with async key generation
+     * This prevents blocking the main UI thread during CPU-intensive RSA key generation
      */
     private async generateCertificate(keyFile: File, certFile: File): Promise<TlsCertificate> {
+        this.isGenerating = true;
+
         try {
-            // Generate key pair
-            const keys = forge.pki.rsa.generateKeyPair(2048);
+            // Use async key generation to avoid blocking the UI
+            const keys = await this.generateKeyPairAsync(2048);
+            
             const cert = forge.pki.createCertificate();
 
             cert.publicKey = keys.publicKey;
@@ -82,7 +100,7 @@ class TlsService {
             cert.setSubject(attrs);
             cert.setIssuer(attrs);
 
-            // Set extensions verified
+            // Set extensions
             cert.setExtensions([{
                 name: 'basicConstraints',
                 cA: true
@@ -118,9 +136,9 @@ class TlsService {
             const privateKeyPem = forge.pki.privateKeyToPem(keys.privateKey);
             const certPem = forge.pki.certificateToPem(cert);
 
-            // Save to filesystem using new API
-            await keyFile.write(privateKeyPem);
-            await certFile.write(certPem);
+            // Save to filesystem (synchronous in new API, but fast)
+            keyFile.write(privateKeyPem);
+            certFile.write(certPem);
 
             const fingerprint = this.computeFingerprint(certPem);
 
@@ -136,7 +154,32 @@ class TlsService {
         } catch (error) {
             console.error('Certificate generation failed:', error);
             throw error;
+        } finally {
+            this.isGenerating = false;
         }
+    }
+
+    /**
+     * Async wrapper for RSA key pair generation
+     * Uses node-forge's async callback API to prevent blocking the main thread
+     */
+    private generateKeyPairAsync(bits: number): Promise<forge.pki.rsa.KeyPair> {
+        return new Promise((resolve, reject) => {
+            console.log(`Generating ${bits}-bit RSA key pair asynchronously...`);
+            
+            forge.pki.rsa.generateKeyPair(
+                { bits, workers: -1 }, // workers: -1 uses Web Workers when available
+                (err, keypair) => {
+                    if (err) {
+                        console.error('RSA key generation failed:', err);
+                        reject(err);
+                    } else {
+                        console.log('RSA key pair generated successfully');
+                        resolve(keypair);
+                    }
+                }
+            );
+        });
     }
 
     /**

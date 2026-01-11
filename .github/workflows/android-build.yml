@@ -5,22 +5,29 @@ on:
     branches: [master]
     tags:
       - 'v*'
+  pull_request:
+    branches: [master]
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Build environment'
+      build_type:
+        description: 'Build type'
         required: true
         type: choice
         options:
+          - both
           - development
           - preview
-          - production
-        default: 'preview'
+        default: 'both'
 
 jobs:
-  build:
-    name: Build Android APK (${{ github.event.inputs.environment || 'preview' }})
+  build-development:
+    name: Build Development APK
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
+      github.event.inputs.build_type == 'development' ||
+      github.event.inputs.build_type == 'both'
     
     steps:
       - name: Checkout code
@@ -50,28 +57,61 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
       
-      - name: Build APK (Development)
-        if: github.event.inputs.environment == 'development'
+      - name: Build Debug APK
         working-directory: android
         run: ./gradlew assembleDebug
       
-      - name: Build APK (Preview/Production)
-        if: github.event.inputs.environment != 'development'
+      - name: Upload Development APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-development
+          path: android/app/build/outputs/apk/debug/*.apk
+
+  build-preview:
+    name: Build Preview APK
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
+      github.event.inputs.build_type == 'preview' ||
+      github.event.inputs.build_type == 'both'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Type check
+        run: npm run type-check
+      
+      - name: Prebuild Android
+        run: npx expo prebuild --platform android --clean
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+      
+      - name: Build Release APK
         working-directory: android
         run: ./gradlew assembleRelease
       
-      - name: Upload APK (Development)
-        if: github.event.inputs.environment == 'development'
+      - name: Upload Preview APK
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk-${{ github.event.inputs.environment || 'production' }}
-          path: android/app/build/outputs/apk/debug/*.apk
-      
-      - name: Upload APK (Preview/Production)
-        if: github.event.inputs.environment != 'development'
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-apk-${{ github.event.inputs.environment || 'production' }}
+          name: android-apk-preview
           path: android/app/build/outputs/apk/release/*.apk
       
       - name: Upload to Release (if tag)

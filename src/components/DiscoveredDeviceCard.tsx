@@ -7,7 +7,7 @@ import type { AppTheme } from '@/theme/colors';
 interface DiscoveredDeviceCardProps {
     deviceName: string;
     deviceId: string;
-    connectionType: 'bluetooth' | 'wifi' | 'nearby';
+    connectionType?: 'wifi';
     onTap: () => void;
     theme: AppTheme;
 }
@@ -20,27 +20,12 @@ interface DiscoveredDeviceCardProps {
 export const DiscoveredDeviceCard = React.memo<DiscoveredDeviceCardProps>(({
     deviceName,
     deviceId,
-    connectionType,
+    connectionType = 'wifi',
     onTap,
     theme
 }) => {
-    const getConnectionIcon = () => {
-        switch (connectionType) {
-            case 'bluetooth': return 'bluetooth';
-            case 'wifi': return 'wifi';
-            case 'nearby': return 'wifi-strength-4';
-            default: return 'devices';
-        }
-    };
-
-    const getConnectionLabel = () => {
-        switch (connectionType) {
-            case 'bluetooth': return 'Bluetooth';
-            case 'wifi': return 'Wi-Fi';
-            case 'nearby': return 'Wi-Fi Direct';
-            default: return 'Network';
-        }
-    };
+    const getConnectionIcon = (): 'wifi' => 'wifi';
+    const getConnectionLabel = () => 'Wi-Fi';
 
     return (
         <Pressable onPress={onTap} style={styles.container}>

@@ -29,7 +29,7 @@ if (Platform.OS !== 'web') {
 
 class UDPService {
     private socket: DgramSocket | null = null;
-    private announcementInterval: NodeJS.Timeout | null = null;
+    private announcementInterval: ReturnType<typeof setInterval> | null = null;
     private isRunning = false;
     private fingerprint: string = '';
     private onDeviceDiscovered?: (device: Device) => void;
@@ -141,7 +141,7 @@ class UDPService {
         // Send periodic announcements
         this.announcementInterval = setInterval(() => {
             this.sendAnnouncement();
-        }, ANNOUNCEMENT_INTERVAL) as unknown as NodeJS.Timeout;
+        }, ANNOUNCEMENT_INTERVAL);
     }
 
     private async sendAnnouncement(): Promise<void> {
@@ -163,7 +163,6 @@ class UDPService {
             port: settings.serverPort ? settings.serverPort + 1 : 53318,
             protocol: 'https',
             announce: true,
-            supportsNearby: Platform.OS === 'android', // Android supports Nearby Connections
         };
 
         const message = JSON.stringify(announcement);
@@ -222,7 +221,6 @@ class UDPService {
                 version: announcement.version,
                 lastSeen: Date.now(),
                 isOnline: true,
-                supportsNearby: announcement.supportsNearby || false, // Use Nearby if advertised
             };
 
             // Send HTTP POST /register response (LocalSend v2 protocol)

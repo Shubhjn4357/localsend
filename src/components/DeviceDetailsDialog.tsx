@@ -34,29 +34,9 @@ export const DeviceDetailsDialog: React.FC<DeviceDetailsDialogProps> = ({
         Alert.alert('Copied', `${label} copied to clipboard`, [{ text: 'OK' }]);
     };
 
-    const getConnectionTypeIcon = () => {
-        switch (device.connectionType) {
-            case 'wifi-direct':
-            case 'nearby':
-                return 'wifi-strength-4';
-            case 'bluetooth':
-                return 'bluetooth';
-            default:
-                return 'wifi';
-        }
-    };
+    const getConnectionTypeIcon = (): 'wifi' => 'wifi';
 
-    const getConnectionTypeLabel = () => {
-        switch (device.connectionType) {
-            case 'wifi-direct':
-            case 'nearby':
-                return 'WiFi-Direct (Nearby)';
-            case 'bluetooth':
-                return 'Bluetooth';
-            default:
-                return 'WiFi';
-        }
-    };
+    const getConnectionTypeLabel = () => 'Wi-Fi';
 
     return (
         <Portal>

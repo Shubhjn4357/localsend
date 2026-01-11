@@ -30,9 +30,6 @@ interface SettingsStore {
     deviceId: string;
     serverRunning: boolean;
     serverPort: number;
-    bluetoothEnabled: boolean;
-    useNearbyConnections: boolean;  // Use Nearby API for Android-to-Android
-    useNearDrop: boolean;            // Use NearDrop for macOS/iOS
     optimizeTransfers: boolean;      // Enable compression & streaming
 
     // Legacy (keeping for compatibility)
@@ -59,9 +56,6 @@ interface SettingsStore {
     setDeviceName: (name: string) => Promise<void>;
     setServerRunning: (running: boolean) => void;
     setServerPort: (port: number) => Promise<void>;
-    setBluetoothEnabled: (enabled: boolean) => Promise<void>;
-    setUseNearbyConnections: (enabled: boolean) => Promise<void>;
-    setUseNearDrop: (enabled: boolean) => Promise<void>;
     setOptimizeTransfers: (enabled: boolean) => Promise<void>;
 
     // Legacy actions
@@ -104,9 +98,6 @@ const defaultSettings = {
     deviceId: generateDeviceId(),
     serverRunning: false,
     serverPort: 53317,
-    bluetoothEnabled: true, // Bluetooth enabled by default
-    useNearbyConnections: true, // Nearby Connections enabled by default
-    useNearDrop: true, // NearDrop enabled by default
     optimizeTransfers: true, // Optimization enabled by default
 
     // Legacy
@@ -196,21 +187,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
     setServerPort: async (port) => {
         set({ serverPort: port });
-        await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
-    },
-
-    setBluetoothEnabled: async (enabled) => {
-        set({ bluetoothEnabled: enabled });
-        await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
-    },
-
-    setUseNearbyConnections: async (enabled) => {
-        set({ useNearbyConnections: enabled });
-        await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
-    },
-
-    setUseNearDrop: async (enabled) => {
-        set({ useNearDrop: enabled });
         await LocalStorage.set(STORAGE_KEYS.SETTINGS, get());
     },
 

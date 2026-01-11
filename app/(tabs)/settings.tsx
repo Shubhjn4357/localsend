@@ -64,15 +64,9 @@ export default function SettingsScreen() {
     // Network Settings
     const deviceName = useSettingsStore((state) => state.deviceName);
     const serverRunning = useSettingsStore((state) => state.serverRunning);
-    const bluetoothEnabled = useSettingsStore((state) => state.bluetoothEnabled);
-    const useNearbyConnections = useSettingsStore((state) => state.useNearbyConnections);
-    const useNearDrop = useSettingsStore((state) => state.useNearDrop);
     const optimizeTransfers = useSettingsStore((state) => state.optimizeTransfers);
     const setDeviceName = useSettingsStore((state) => state.setDeviceName);
     const setServerRunning = useSettingsStore((state) => state.setServerRunning);
-    const setBluetoothEnabled = useSettingsStore((state) => state.setBluetoothEnabled);
-    const setUseNearbyConnections = useSettingsStore((state) => state.setUseNearbyConnections);
-    const setUseNearDrop = useSettingsStore((state) => state.setUseNearDrop);
     const setOptimizeTransfers = useSettingsStore((state) => state.setOptimizeTransfers);
 
     const currentYear = new Date().getFullYear();
@@ -337,35 +331,6 @@ export default function SettingsScreen() {
                         value={serverRunning}
                         onValueChange={setServerRunning}
                         theme={theme}
-                    />
-
-                    <ToggleSettingItem
-                        icon="bluetooth"
-                        label="Bluetooth Discovery"
-                        subtitle="Use Bluetooth for finding nearby devices"
-                        value={bluetoothEnabled}
-                        onValueChange={setBluetoothEnabled}
-                        theme={theme}
-                    />
-
-                    <ToggleSettingItem
-                        icon="wifi"
-                        label="Wi-Fi Direct (Android)"
-                        subtitle="Faster transfers between Android devices"
-                        value={useNearbyConnections}
-                        onValueChange={setUseNearbyConnections}
-                        theme={theme}
-                        disabled={Platform.OS !== 'android'}
-                    />
-
-                    <ToggleSettingItem
-                        icon="apple"
-                        label="NearDrop (macOS/iOS)"
-                        subtitle="Compatible with Android Quick Share"
-                        value={useNearDrop}
-                        onValueChange={setUseNearDrop}
-                        theme={theme}
-                        disabled={Platform.OS !== 'ios' && Platform.OS !== 'macos'}
                     />
 
                     <ToggleSettingItem

@@ -3,10 +3,13 @@ import { View, StyleSheet } from 'react-native';
 import { Card, List, Button, useTheme } from 'react-native-paper';
 import SystemSettings from '../../modules/system-settings/src';
 
+/**
+ * WiFi Connectivity Status Component
+ * Shows WiFi status for LocalSend discovery
+ */
 export const ConnectivityStatus: React.FC = () => {
     const theme = useTheme();
     const [wifiEnabled, setWifiEnabled] = useState<boolean | null>(null);
-    const [bluetoothEnabled, setBluetoothEnabled] = useState<boolean | null>(null);
 
     const checkStatus = async () => {
         try {
@@ -16,14 +19,10 @@ export const ConnectivityStatus: React.FC = () => {
                 return;
             }
 
-            const [wifi, bluetooth] = await Promise.all([
-                SystemSettings.isWiFiEnabled(),
-                SystemSettings.isBluetoothEnabled(),
-            ]);
+            const wifi = await SystemSettings.isWiFiEnabled();
             setWifiEnabled(wifi);
-            setBluetoothEnabled(bluetooth);
         } catch (error) {
-            console.error('Failed to check connectivity status:', error);
+            console.error('Failed to check WiFi status:', error);
         }
     };
 
@@ -41,7 +40,7 @@ export const ConnectivityStatus: React.FC = () => {
 
     return (
         <Card style={styles.card}>
-            <Card.Title title="Connectivity" />
+            <Card.Title title="Network Status" />
             <Card.Content>
                 {/* WiFi Status */}
                 <List.Item
@@ -50,8 +49,8 @@ export const ConnectivityStatus: React.FC = () => {
                         wifiEnabled === null
                             ? 'Checking...'
                             : wifiEnabled
-                                ? 'Enabled'
-                                : 'Disabled - Required for discovery'
+                                ? 'Connected - Ready for file transfer'
+                                : 'Disabled - Required for LocalSend'
                     }
                     left={(props) => (
                         <List.Icon
@@ -66,36 +65,6 @@ export const ConnectivityStatus: React.FC = () => {
                                 mode="contained"
                                 compact
                                 onPress={() => SystemSettings.openWiFiSettings()}
-                            >
-                                Enable
-                            </Button>
-                        ) : null
-                    }
-                />
-
-                {/* Bluetooth Status */}
-                <List.Item
-                    title="Bluetooth"
-                    description={
-                        bluetoothEnabled === null
-                            ? 'Checking...'
-                            : bluetoothEnabled
-                                ? 'Enabled'
-                                : 'Disabled - Optional for discovery'
-                    }
-                    left={(props) => (
-                        <List.Icon
-                            {...props}
-                            icon={bluetoothEnabled ? 'bluetooth' : 'bluetooth-off'}
-                            color={bluetoothEnabled ? theme.colors.primary : theme.colors.onSurfaceDisabled}
-                        />
-                    )}
-                    right={() =>
-                        !bluetoothEnabled && bluetoothEnabled !== null ? (
-                            <Button
-                                mode="outlined"
-                                compact
-                                onPress={() => SystemSettings.openBluetoothSettings()}
                             >
                                 Enable
                             </Button>

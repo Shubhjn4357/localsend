@@ -2,7 +2,7 @@ name: iOS Build
 
 on:
   push:
-    branches: [master]
+    branches: [development]
     tags:
       - 'v*'
   workflow_dispatch:
